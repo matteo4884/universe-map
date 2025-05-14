@@ -1,54 +1,44 @@
-# React + TypeScript + Vite
+# 🌌 Universe Map
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Universe Map** is an interactive 3D project that aims to visualize the known universe — starting from our Solar System.
 
-Currently, two official plugins are available:
+![Universe Map Preview](./public/preview.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 About the Project
 
-## Expanding the ESLint configuration
+Universe Map is a long-term personal project focused on building a realistic, explorable 3D map of space using real astronomical data.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Currently, it features a detailed and animated model of the **Solar System**, including accurate scales, axial tilts, and textures.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+🔭 In future updates, the project will include **all nearby stars**, based on actual scientific data.
+
+> I work on this project whenever I find the time — it's a labor of love, driven by my fascination with space and 3D visualization.
+
+---
+
+## 🧪 Tech Stack
+
+- **[Three.js](https://threejs.org/)** – WebGL 3D rendering
+- **[React](https://reactjs.org/)** – Frontend architecture
+- **[TypeScript](https://www.typescriptlang.org/)** – Type safety and scalability
+- **[Vite](https://vitejs.dev/)** – Lightning-fast development tooling
+
+---
+
+## 💻 Running Locally
+
+```bash
+git clone https://github.com/your-username/universe_map.git
+cd universe_map
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Then open http://localhost:5173 in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+## 👤 Author
+
+Created with passion by **Matteo Beu**
+🔗 [matteobeu.com](https://matteobeu.com)
