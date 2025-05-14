@@ -16,6 +16,13 @@ Currently, it features a detailed and animated model of the **Solar System**, in
 
 ---
 
+## 🌐 Live Demo
+
+You can explore the project live at:  
+🔭 **[universe.matteobeu.com](https://universe.matteobeu.com)**
+
+---
+
 ## 🧪 Tech Stack
 
 - **[Three.js](https://threejs.org/)** – WebGL 3D rendering
