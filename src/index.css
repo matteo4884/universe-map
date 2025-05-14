@@ -1,0 +1,94 @@
+@import url("https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+
+@import "tailwindcss";
+
+body {
+  font-family: "Prompt", sans-serif;
+  font-weight: 400;
+  line-height: 1;
+  background-color: #000;
+}
+
+.bg-blur-custom {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.noselect {
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version, currently
+                                    supported by Chrome, Edge, Opera and Firefox */
+}
+.custom-card {
+  clip-path: polygon(100% 0, 100% 95%, 95% 100%, 0 100%, 0 46%, 0 10%, 10% 0);
+}
+.card-angle {
+  clip-path: polygon(0 33%, 33% 0, 100% 0, 0% 100%);
+}
+.custom-range {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 2px; /* Linea sottile */
+  background: transparent; /* Nasconde il riempimento */
+  cursor: pointer;
+  outline: none;
+}
+
+/* Track (la linea) */
+.custom-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background-color: #888; /* Colore linea */
+}
+
+/* Thumb (pallino) */
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: white; /* Colore del pallino */
+  border: none;
+  margin-top: -6px; /* Allinea il pallino verticalmente con la linea */
+}
+
+/* Firefox */
+.custom-range::-moz-range-track {
+  height: 2px;
+  background-color: #888;
+}
+
+.custom-range::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+}
+
+/* Edge */
+.custom-range::-ms-track {
+  height: 2px;
+  background: transparent;
+  border-color: transparent;
+  color: transparent;
+}
+
+.custom-range::-ms-fill-lower {
+  background: transparent;
+}
+
+.custom-range::-ms-fill-upper {
+  background: transparent;
+}
+
+.custom-range::-ms-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+}
