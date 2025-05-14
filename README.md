@@ -40,5 +40,5 @@ Then open http://localhost:5173 in your browser.
 
 ## 👤 Author
 
-Created with passion by **Matteo Beu**
+Created with passion by **Matteo Beu**  
 🔗 [matteobeu.com](https://matteobeu.com)
