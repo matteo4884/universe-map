@@ -1,213 +1,321 @@
-export let SCALE_SIZE: number = 1;
+export const SCALE_SIZE: number = 1;
 
-export let SCALE_DISTANCE: number = 1;
-
-export interface MoonParam {
+export interface CelestialBody {
   id: number;
-  type: string;
+  type: "star" | "planet" | "moon";
   name: string;
   map: string;
+  image: string;
   radius: number;
-  distanceFromPlanet: number;
+  distanceFromParent: number;
   info: {
-    orbitalPeriod: number;
-    rotationPeriod: number;
-  };
-}
-
-export interface PlanetParam {
-  id: number;
-  type: string;
-  name: string;
-  map: string;
-  radius: number;
-  distanceFromStar: number;
-  info: {
-    orbitalPeriod: number;
-    rotationPeriod: number;
+    mass: string;
+    gravity: number;
+    temperature: number;
+    dayLength: string;
+    yearLength: string;
+    orbitalSpeed: number;
     axialTilt: number;
-    orbitInclination: number;
+    eccentricity: number;
+    magneticField: boolean;
+    rings: boolean;
+    atmosphere: string[];
+    funFact: string;
   };
-  moons: MoonParam[];
+  children: CelestialBody[];
 }
 
-export interface StarParam {
-  id: number;
-  type: string;
-  name: string;
-  map: string;
-  radius: number;
-  info: any[]; // puoi definire meglio se ti serve
-  planets: PlanetParam[];
-}
-
-export const CELESTIAL_BODIES: StarParam[] = [
-  {
-    id: 1,
-    type: "star",
-    name: "sun",
-    map: "g",
-    radius: 696340,
-    info: [],
-    planets: [
-      {
-        id: 1,
-        type: "planet",
-        name: "mercury",
-        map: "mercury",
-        radius: 2439.7,
-        distanceFromStar: 57910000,
-        info: {
-          orbitalPeriod: 87.97,
-          rotationPeriod: 58.646,
-          axialTilt: 0.03,
-          orbitInclination: 7.0,
-        },
-        moons: [],
-      },
-      {
-        id: 2,
-        type: "planet",
-        name: "venus",
-        map: "venus",
-        radius: 6051.8,
-        distanceFromStar: 108200000,
-        info: {
-          orbitalPeriod: 224.7,
-          rotationPeriod: -243.025, // rotazione retrograda
-          axialTilt: 177.36,
-          orbitInclination: 3.39,
-        },
-        moons: [],
-      },
-      {
-        id: 3,
-        type: "planet",
-        name: "earth",
-        map: "earth",
-        radius: 6371,
-        distanceFromStar: 149600000,
-        info: {
-          orbitalPeriod: 365.25,
-          rotationPeriod: 0.997,
-          axialTilt: 23.44,
-          orbitInclination: 0.0,
-        },
-        moons: [
-          {
-            id: 1,
-            type: "moon",
-            name: "moon",
-            map: "moon",
-            radius: 1737,
-            distanceFromPlanet: 384400,
-            info: {
-              orbitalPeriod: 27.3,
-              rotationPeriod: 27.3,
-            },
-          },
-        ],
-      },
-      {
-        id: 4,
-        type: "planet",
-        name: "mars",
-        map: "mars",
-        radius: 3389.5,
-        distanceFromStar: 227900000,
-        info: {
-          orbitalPeriod: 687,
-          rotationPeriod: 1.03,
-          axialTilt: 25.19,
-          orbitInclination: 1.85,
-        },
-        moons: [
-          {
-            id: 1,
-            type: "moon",
-            name: "phobos",
-            map: "phobos",
-            radius: 11.267,
-            distanceFromPlanet: 9376,
-            info: {
-              orbitalPeriod: 0.319,
-              rotationPeriod: 0.319,
-            },
-          },
-          {
-            id: 2,
-            type: "moon",
-            name: "deimos",
-            map: "deimos",
-            radius: 6.2,
-            distanceFromPlanet: 23463,
-            info: {
-              orbitalPeriod: 1.263,
-              rotationPeriod: 1.263,
-            },
-          },
-        ],
-      },
-      {
-        id: 5,
-        type: "planet",
-        name: "jupiter",
-        map: "jupiter",
-        radius: 69911,
-        distanceFromStar: 778500000,
-        info: {
-          orbitalPeriod: 4331,
-          rotationPeriod: 0.4135,
-          axialTilt: 3.13,
-          orbitInclination: 1.31,
-        },
-        moons: [],
-      },
-      {
-        id: 6,
-        type: "planet",
-        name: "saturn",
-        map: "saturn",
-        radius: 58232,
-        distanceFromStar: 1433000000,
-        info: {
-          orbitalPeriod: 10747,
-          rotationPeriod: 0.444,
-          axialTilt: 26.73,
-          orbitInclination: 2.49,
-        },
-        moons: [],
-      },
-      {
-        id: 7,
-        type: "planet",
-        name: "uranus",
-        map: "uranus",
-        radius: 25362,
-        distanceFromStar: 2871000000,
-        info: {
-          orbitalPeriod: 30589,
-          rotationPeriod: -0.718,
-          axialTilt: 97.77,
-          orbitInclination: 0.77,
-        },
-        moons: [],
-      },
-      {
-        id: 8,
-        type: "planet",
-        name: "neptune",
-        map: "neptune",
-        radius: 24622,
-        distanceFromStar: 4495000000,
-        info: {
-          orbitalPeriod: 59800,
-          rotationPeriod: 0.671,
-          axialTilt: 28.32,
-          orbitInclination: 1.77,
-        },
-        moons: [],
-      },
-    ],
+export const SOLAR_SYSTEM: CelestialBody = {
+  id: 0,
+  type: "star",
+  name: "Sun",
+  map: "g",
+  image: "sun.png",
+  radius: 696340,
+  distanceFromParent: 0,
+  info: {
+    mass: "1.989 × 10³⁰ kg",
+    gravity: 274,
+    temperature: 5500,
+    dayLength: "25.4 Earth days",
+    yearLength: "225 million years",
+    orbitalSpeed: 220,
+    axialTilt: 7.25,
+    eccentricity: 0,
+    magneticField: true,
+    rings: false,
+    atmosphere: ["H 73.46%", "He 24.85%"],
+    funFact: "The Sun accounts for 99.86% of the total mass of the Solar System.",
   },
-];
+  children: [
+    {
+      id: 1,
+      type: "planet",
+      name: "Mercury",
+      map: "mercury",
+      image: "mercury.png",
+      radius: 2439.7,
+      distanceFromParent: 57910000,
+      info: {
+        mass: "3.301 × 10²³ kg",
+        gravity: 3.7,
+        temperature: 167,
+        dayLength: "58d 15h",
+        yearLength: "88 days",
+        orbitalSpeed: 47.4,
+        axialTilt: 0.03,
+        eccentricity: 0.2056,
+        magneticField: true,
+        rings: false,
+        atmosphere: [],
+        funFact: "Mercury's day is longer than its year — one solar day lasts 176 Earth days.",
+      },
+      children: [],
+    },
+    {
+      id: 2,
+      type: "planet",
+      name: "Venus",
+      map: "venus",
+      image: "venus.png",
+      radius: 6051.8,
+      distanceFromParent: 108200000,
+      info: {
+        mass: "4.867 × 10²⁴ kg",
+        gravity: 8.87,
+        temperature: 464,
+        dayLength: "243 Earth days",
+        yearLength: "225 days",
+        orbitalSpeed: 35.0,
+        axialTilt: 177.36,
+        eccentricity: 0.0067,
+        magneticField: false,
+        rings: false,
+        atmosphere: ["CO₂ 96.5%", "N₂ 3.5%"],
+        funFact: "Venus rotates backwards compared to most planets, and its day is longer than its year.",
+      },
+      children: [],
+    },
+    {
+      id: 3,
+      type: "planet",
+      name: "Earth",
+      map: "earth",
+      image: "earth.png",
+      radius: 6371,
+      distanceFromParent: 149600000,
+      info: {
+        mass: "5.972 × 10²⁴ kg",
+        gravity: 9.81,
+        temperature: 15,
+        dayLength: "23h 56m",
+        yearLength: "365.25 days",
+        orbitalSpeed: 29.8,
+        axialTilt: 23.44,
+        eccentricity: 0.0167,
+        magneticField: true,
+        rings: false,
+        atmosphere: ["N₂ 78%", "O₂ 21%", "Ar 0.9%"],
+        funFact: "Only known planet to harbor life. 71% of its surface is covered by water.",
+      },
+      children: [
+        {
+          id: 1,
+          type: "moon",
+          name: "Moon",
+          map: "moon",
+          image: "moon.png",
+          radius: 1737,
+          distanceFromParent: 384400,
+          info: {
+            mass: "7.342 × 10²² kg",
+            gravity: 1.62,
+            temperature: -20,
+            dayLength: "27.3 Earth days",
+            yearLength: "27.3 days",
+            orbitalSpeed: 1.0,
+            axialTilt: 1.54,
+            eccentricity: 0.0549,
+            magneticField: false,
+            rings: false,
+            atmosphere: [],
+            funFact: "The Moon is slowly drifting away from Earth at about 3.8 cm per year.",
+          },
+          children: [],
+        },
+      ],
+    },
+    {
+      id: 4,
+      type: "planet",
+      name: "Mars",
+      map: "mars",
+      image: "mars.png",
+      radius: 3389.5,
+      distanceFromParent: 227900000,
+      info: {
+        mass: "6.417 × 10²³ kg",
+        gravity: 3.72,
+        temperature: -65,
+        dayLength: "24h 37m",
+        yearLength: "687 days",
+        orbitalSpeed: 24.1,
+        axialTilt: 25.19,
+        eccentricity: 0.0935,
+        magneticField: false,
+        rings: false,
+        atmosphere: ["CO₂ 95.3%", "N₂ 2.7%", "Ar 1.6%"],
+        funFact: "Home to Olympus Mons, the tallest volcano in the Solar System at 21.9 km high.",
+      },
+      children: [
+        {
+          id: 1,
+          type: "moon",
+          name: "Phobos",
+          map: "phobos",
+          image: "phobos.png",
+          radius: 11.267,
+          distanceFromParent: 9376,
+          info: {
+            mass: "1.066 × 10¹⁶ kg",
+            gravity: 0.0057,
+            temperature: -40,
+            dayLength: "7h 39m",
+            yearLength: "0.319 days",
+            orbitalSpeed: 2.14,
+            axialTilt: 0,
+            eccentricity: 0.0151,
+            magneticField: false,
+            rings: false,
+            atmosphere: [],
+            funFact: "Phobos orbits Mars faster than Mars rotates, rising in the west and setting in the east.",
+          },
+          children: [],
+        },
+        {
+          id: 2,
+          type: "moon",
+          name: "Deimos",
+          map: "deimos",
+          image: "deimos.png",
+          radius: 6.2,
+          distanceFromParent: 23463,
+          info: {
+            mass: "1.476 × 10¹⁵ kg",
+            gravity: 0.003,
+            temperature: -40,
+            dayLength: "30h 18m",
+            yearLength: "1.263 days",
+            orbitalSpeed: 1.35,
+            axialTilt: 0,
+            eccentricity: 0.00033,
+            magneticField: false,
+            rings: false,
+            atmosphere: [],
+            funFact: "Deimos is one of the smallest moons in the Solar System, only about 6 km in radius.",
+          },
+          children: [],
+        },
+      ],
+    },
+    {
+      id: 5,
+      type: "planet",
+      name: "Jupiter",
+      map: "jupiter",
+      image: "jupiter.png",
+      radius: 69911,
+      distanceFromParent: 778500000,
+      info: {
+        mass: "1.898 × 10²⁷ kg",
+        gravity: 24.79,
+        temperature: -110,
+        dayLength: "9h 56m",
+        yearLength: "4,333 days",
+        orbitalSpeed: 13.1,
+        axialTilt: 3.13,
+        eccentricity: 0.0489,
+        magneticField: true,
+        rings: true,
+        atmosphere: ["H₂ 89.8%", "He 10.2%"],
+        funFact: "Jupiter's Great Red Spot is a storm larger than Earth that has been raging for over 350 years.",
+      },
+      children: [],
+    },
+    {
+      id: 6,
+      type: "planet",
+      name: "Saturn",
+      map: "saturn",
+      image: "saturn.png",
+      radius: 58232,
+      distanceFromParent: 1433000000,
+      info: {
+        mass: "5.683 × 10²⁶ kg",
+        gravity: 10.44,
+        temperature: -140,
+        dayLength: "10h 42m",
+        yearLength: "10,759 days",
+        orbitalSpeed: 9.7,
+        axialTilt: 26.73,
+        eccentricity: 0.0565,
+        magneticField: true,
+        rings: true,
+        atmosphere: ["H₂ 96.3%", "He 3.25%"],
+        funFact: "Saturn's density is so low that it would float in water if there were an ocean large enough.",
+      },
+      children: [],
+    },
+    {
+      id: 7,
+      type: "planet",
+      name: "Uranus",
+      map: "uranus",
+      image: "uranus.png",
+      radius: 25362,
+      distanceFromParent: 2871000000,
+      info: {
+        mass: "8.681 × 10²⁵ kg",
+        gravity: 8.87,
+        temperature: -195,
+        dayLength: "17h 14m",
+        yearLength: "30,687 days",
+        orbitalSpeed: 6.8,
+        axialTilt: 97.77,
+        eccentricity: 0.0457,
+        magneticField: true,
+        rings: true,
+        atmosphere: ["H₂ 82.5%", "He 15.2%", "CH₄ 2.3%"],
+        funFact: "Uranus rotates on its side with an axial tilt of 98°, likely caused by a collision with an Earth-sized object.",
+      },
+      children: [],
+    },
+    {
+      id: 8,
+      type: "planet",
+      name: "Neptune",
+      map: "neptune",
+      image: "neptune.png",
+      radius: 24622,
+      distanceFromParent: 4495000000,
+      info: {
+        mass: "1.024 × 10²⁶ kg",
+        gravity: 11.15,
+        temperature: -200,
+        dayLength: "16h 6m",
+        yearLength: "60,190 days",
+        orbitalSpeed: 5.4,
+        axialTilt: 28.32,
+        eccentricity: 0.0113,
+        magneticField: true,
+        rings: true,
+        atmosphere: ["H₂ 80%", "He 19%", "CH₄ 1.5%"],
+        funFact: "Neptune has the strongest winds in the Solar System, reaching up to 2,100 km/h.",
+      },
+      children: [],
+    },
+  ],
+};
+
+// Backward-compatible export: array wrapping the root for 3D rendering code
+export const CELESTIAL_BODIES: CelestialBody[] = [SOLAR_SYSTEM];
