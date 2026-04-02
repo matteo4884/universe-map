@@ -7,6 +7,7 @@ import { KM_PER_UNIT } from "../../services/horizons";
 import { EphemerisContext } from "../../context/ephemeris";
 import Planet from "../planets/Planet";
 import * as THREE from "three";
+import { Line } from "@react-three/drei";
 
 interface StarProps {
   map: string;
@@ -33,7 +34,7 @@ export default function Star({
       "MyComponent must be used within ScaleDistanceScaleProvider"
     );
   const { scaleDistance } = contextScaleDistance;
-  const { positions } = useContext(EphemerisContext);
+  const { positions, trajectories } = useContext(EphemerisContext);
 
   const glowRef = useRef<THREE.Mesh>(null);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -138,9 +139,35 @@ export default function Star({
       </mesh>
 
       {planets}
-      {/* <Html position={[0, 0, 0]} center>
-        <div className="px-2 rounded-md font-bold bg-white">SUN</div>
-      </Html> */}
+
+      {/* Orbit trajectory lines — rendered here (no rotation) */}
+      {showOrbits &&
+        trajectories &&
+        starObj.children.map((planet) => {
+          const traj = trajectories[planet.horizonsId];
+          if (!traj || traj.length < 2) return null;
+          const points = traj.map(
+            (p) =>
+              new THREE.Vector3(
+                p.x / KM_PER_UNIT / scaleDistance,
+                p.y / KM_PER_UNIT / scaleDistance,
+                p.z / KM_PER_UNIT / scaleDistance
+              )
+          );
+          // Close the orbit by connecting last point back to first
+          points.push(points[0].clone());
+          return (
+            <Line
+              key={`orbit-${planet.id}`}
+              points={points}
+              color="white"
+              lineWidth={0.5}
+              transparent
+              opacity={0.1}
+            />
+          );
+        })}
+
       {/* Luce reale emessa */}
       <pointLight intensity={2} distance={5000000} decay={0} color={light} />
     </group>

@@ -1,4 +1,4 @@
-import { useState, useContext, useRef, useMemo } from "react";
+import { useState, useContext, useRef } from "react";
 import { ScaleDistanceScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
 import { useLoader, useThree, useFrame } from "@react-three/fiber";
@@ -7,7 +7,7 @@ import { ScaleEarthUnitSize } from "../../helper/units";
 import { KM_PER_UNIT } from "../../services/horizons";
 import Moon from "../moons/Moon";
 import * as THREE from "three";
-import { Html, Line } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 
 interface PlanetProps {
   map: string;
@@ -26,7 +26,6 @@ export default function Planet({
   rotation,
   planetObj,
   starObj,
-  showOrbits = true,
 }: PlanetProps) {
   const contextScaleDistance = useContext(ScaleDistanceScaleContext);
   if (!contextScaleDistance)
@@ -34,7 +33,7 @@ export default function Planet({
       "MyComponent must be used within ScaleDistanceScaleProvider"
     );
   const { scaleDistance } = contextScaleDistance;
-  const { positions, trajectories } = useContext(EphemerisContext);
+  const { positions } = useContext(EphemerisContext);
   const isEarth = map === "earth";
 
   const textureMap: Record<string, string> = {
@@ -86,24 +85,6 @@ export default function Planet({
       />
     );
   });
-
-  const orbitPoints = useMemo(() => {
-    if (!trajectories || !trajectories[planetObj.horizonsId]) return null;
-    return trajectories[planetObj.horizonsId].map(
-      (p) =>
-        new THREE.Vector3(
-          p.x / KM_PER_UNIT / scaleDistance,
-          p.y / KM_PER_UNIT / scaleDistance,
-          p.z / KM_PER_UNIT / scaleDistance
-        )
-    );
-  }, [trajectories, planetObj.horizonsId, scaleDistance]);
-
-  const negPosition: [number, number, number] = [
-    -(position as [number, number, number])[0],
-    -(position as [number, number, number])[1],
-    -(position as [number, number, number])[2],
-  ];
 
   const [visible, setVisible] = useState(false);
   const { camera } = useThree();
@@ -177,18 +158,6 @@ export default function Planet({
           </div>
           {/* <div className="w-6 h-6 rounded-full absolute left-0 right-0 top-0 bottom-0 m-auto border border-[#fff]"></div> */}
         </Html>
-      )}
-
-      {showOrbits && orbitPoints && orbitPoints.length > 1 && (
-        <group position={negPosition}>
-          <Line
-            points={orbitPoints}
-            color="white"
-            lineWidth={0.5}
-            transparent
-            opacity={0.1}
-          />
-        </group>
       )}
 
       {moons}
