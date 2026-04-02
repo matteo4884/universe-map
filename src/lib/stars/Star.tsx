@@ -1,7 +1,7 @@
 import { useRef, useContext } from "react";
 import { ScaleDistanceScaleContext } from "../../context/contexts";
 import { useLoader, useFrame, useThree } from "@react-three/fiber";
-import { StarParam } from "../../data";
+import { CelestialBody } from "../../data";
 import { ScaleEarthUnitSize, ScaleDistance } from "../../helper/units";
 import Planet from "../planets/Planet";
 import * as THREE from "three";
@@ -10,7 +10,7 @@ interface StarProps {
   map: string;
   position: THREE.Vector3 | [x: number, y: number, z: number];
   size: number;
-  starObj: StarParam;
+  starObj: CelestialBody;
   visible: boolean;
   setVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -34,15 +34,15 @@ export default function Star({
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
 
-  let texture;
-  let color;
-  let emessive;
-  let light;
+  let texture = "2k_sun.jpg";
+  let color = "orange";
+  let emissive = new THREE.Color(1, 1, 0.6);
+  let light = "#fffde3";
   switch (map) {
     case "g":
       texture = "2k_sun.jpg";
       color = "orange";
-      emessive = new THREE.Color(1, 1, 0.6);
+      emissive = new THREE.Color(1, 1, 0.6);
       light = "#fffde3";
       break;
   }
@@ -62,36 +62,34 @@ export default function Star({
     }
 
     const distance = camera.position.length();
-    // Puoi cambiare questa soglia in base alla scala della tua scena
-    setVisible(distance < 10000000);
+    const shouldBeVisible = distance < 10000000;
+    if (shouldBeVisible !== visible) {
+      setVisible(shouldBeVisible);
+    }
   });
 
   const sunTexture = useLoader(THREE.TextureLoader, `/${texture}`);
 
-  const planets: React.ReactNode[] = [];
-
-  starObj.planets.map((planet) => {
-    return planets.push(
-      <Planet
-        map={planet.map}
-        position={[
-          ScaleDistance({ distance: 0, scale: scaleDistance }),
-          ScaleDistance({ distance: 0, scale: scaleDistance }),
-          ScaleDistance({
-            distance: planet.distanceFromStar,
-            scale: scaleDistance,
-          }) +
-            ScaleEarthUnitSize({ size: starObj.radius }) +
-            +ScaleEarthUnitSize({ size: planet.radius }),
-        ]}
-        size={ScaleEarthUnitSize({ size: planet.radius })}
-        rotation={planet.info.axialTilt}
-        key={`${starObj.id}-${planet.id}`}
-        planetObj={planet}
-        starObj={starObj}
-      />
-    );
-  });
+  const planets = starObj.children.map((planet) => (
+    <Planet
+      map={planet.map}
+      position={[
+        ScaleDistance({ distance: 0, scale: scaleDistance }),
+        ScaleDistance({ distance: 0, scale: scaleDistance }),
+        ScaleDistance({
+          distance: planet.distanceFromParent,
+          scale: scaleDistance,
+        }) +
+          ScaleEarthUnitSize({ size: starObj.radius }) +
+          ScaleEarthUnitSize({ size: planet.radius }),
+      ]}
+      size={ScaleEarthUnitSize({ size: planet.radius })}
+      rotation={planet.info.axialTilt}
+      key={`${starObj.id}-${planet.id}`}
+      planetObj={planet}
+      starObj={starObj}
+    />
+  ));
 
   return visible ? (
     <group position={position}>
@@ -107,7 +105,7 @@ export default function Star({
           map={sunTexture}
           emissiveMap={sunTexture}
           emissiveIntensity={2}
-          emissive={emessive}
+          emissive={emissive}
         />
       </mesh>
       <mesh ref={glowRef}>

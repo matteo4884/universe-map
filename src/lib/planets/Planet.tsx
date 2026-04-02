@@ -1,7 +1,7 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useRef } from "react";
 import { ScaleDistanceScaleContext } from "../../context/contexts";
 import { useLoader, useThree, useFrame } from "@react-three/fiber";
-import { PlanetParam, StarParam } from "../../data";
+import { CelestialBody } from "../../data";
 import { ScaleEarthUnitSize, ScaleDistance } from "../../helper/units";
 import Moon from "../moons/Moon";
 import * as THREE from "three";
@@ -12,8 +12,8 @@ interface PlanetProps {
   position: THREE.Vector3 | [x: number, y: number, z: number];
   size: number;
   rotation: number;
-  planetObj: PlanetParam;
-  starObj: StarParam;
+  planetObj: CelestialBody;
+  starObj: CelestialBody;
 }
 
 export default function Planet({
@@ -30,79 +30,65 @@ export default function Planet({
       "MyComponent must be used within ScaleDistanceScaleProvider"
     );
   const { scaleDistance } = contextScaleDistance;
-  let texture = "2k_earth_daymap.jpg";
-  let clouds = "2k_earth_clouds.jpg";
-  let night = "2k_earth_nightmap.jpg";
-  // let ring = "2k_saturn_ring_alpha.png";
-  switch (map) {
-    case "mercury":
-      texture = "2k_mars.jpg";
-      break;
-    case "venus":
-      texture = "2k_venus_surface.jpg";
-      break;
-    case "earth":
-      texture = "2k_earth_daymap.jpg";
-      clouds = "2k_earth_clouds.jpg";
-      night = "2k_earth_nightmap.jpg";
-      break;
-    case "mars":
-      texture = "2k_mars.jpg";
-      break;
-    case "jupiter":
-      texture = "2k_jupiter.jpg";
-      break;
-    case "saturn":
-      texture = "2k_saturn.jpg";
-      // ring = "2k_saturn_ring_alpha.png";
-      break;
-    case "uranus":
-      texture = "2k_uranus.jpg";
-      break;
-    case "neptune":
-      texture = "2k_neptune.jpg";
-      break;
-  }
+  const isEarth = map === "earth";
+
+  const textureMap: Record<string, string> = {
+    mercury: "2k_mercury.jpg",
+    venus: "2k_venus_surface.jpg",
+    earth: "2k_earth_daymap.jpg",
+    mars: "2k_mars.jpg",
+    jupiter: "2k_jupiter.jpg",
+    saturn: "2k_saturn.jpg",
+    uranus: "2k_uranus.jpg",
+    neptune: "2k_neptune.jpg",
+  };
+  const texture = textureMap[map] ?? "2k_earth_daymap.jpg";
+
   const colorMap = useLoader(THREE.TextureLoader, `/${texture}`);
-  const nightMap = useLoader(THREE.TextureLoader, `/${night}`);
-  const cloudMap = useLoader(THREE.TextureLoader, `/${clouds}`);
+  const nightMap = useLoader(
+    THREE.TextureLoader,
+    isEarth ? "/2k_earth_nightmap.jpg" : `/${texture}`
+  );
+  const cloudMap = useLoader(
+    THREE.TextureLoader,
+    isEarth ? "/2k_earth_clouds.jpg" : `/${texture}`
+  );
 
-  const moons: React.ReactNode[] = [];
-
-  planetObj.moons.map((moon) => {
-    if (moon) {
-      return moons.push(
-        <Moon
-          position={[
-            ScaleDistance({
-              distance: moon.distanceFromPlanet,
-              scale: scaleDistance,
-            }) +
-              ScaleEarthUnitSize({ size: planetObj.radius }) +
-              ScaleEarthUnitSize({ size: moon.radius }),
-            ScaleDistance({
-              distance: moon.distanceFromPlanet,
-              scale: scaleDistance,
-            }) +
-              ScaleEarthUnitSize({ size: planetObj.radius }) +
-              ScaleEarthUnitSize({ size: moon.radius }),
-            0,
-          ]}
-          size={ScaleEarthUnitSize({ size: moon.radius })}
-          key={`${starObj.id}-${planetObj.id}-${moon.id}`}
-        />
-      );
-    }
-  });
+  const moons = planetObj.children.map((moon) => (
+    <Moon
+      position={[
+        ScaleDistance({
+          distance: moon.distanceFromParent,
+          scale: scaleDistance,
+        }) +
+          ScaleEarthUnitSize({ size: planetObj.radius }) +
+          ScaleEarthUnitSize({ size: moon.radius }),
+        ScaleDistance({
+          distance: moon.distanceFromParent,
+          scale: scaleDistance,
+        }) +
+          ScaleEarthUnitSize({ size: planetObj.radius }) +
+          ScaleEarthUnitSize({ size: moon.radius }),
+        0,
+      ]}
+      size={ScaleEarthUnitSize({ size: moon.radius })}
+      key={`${starObj.id}-${planetObj.id}-${moon.id}`}
+    />
+  ));
 
   const [visible, setVisible] = useState(false);
   const { camera } = useThree();
+  const planetPosRef = useRef(new THREE.Vector3());
 
   useFrame(() => {
-    const planetPos = new THREE.Vector3(...position);
-    const distance = camera.position.distanceTo(planetPos);
-
-    setVisible(distance > 100); // 👈 soglia di visibilità
+    planetPosRef.current.set(
+      ...(position as [number, number, number])
+    );
+    const distance = camera.position.distanceTo(planetPosRef.current);
+    const shouldBeVisible = distance > 100;
+    if (shouldBeVisible !== visible) {
+      setVisible(shouldBeVisible);
+    }
   });
 
   return (
@@ -114,7 +100,7 @@ export default function Planet({
         console.log("scheda");
       }}
     >
-      {map === "earth" ? (
+      {isEarth ? (
         <group>
           <mesh>
             <sphereGeometry args={[size, 64, 64]} />
