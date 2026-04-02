@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { StarParam } from "../../data";
-// import { FaEye } from "react-icons/fa";
+import { FaEye } from "react-icons/fa";
 import { MdArrowForwardIos } from "react-icons/md";
+import { CameraNavigationContext } from "../../context/cameraNavigation";
 
 interface CardParam {
   visible: boolean;
@@ -9,6 +10,7 @@ interface CardParam {
 }
 
 export default function Card({ visible, info }: CardParam) {
+  const cameraNav = useContext(CameraNavigationContext);
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -42,10 +44,15 @@ export default function Card({ visible, info }: CardParam) {
                   return (
                     <div
                       key={planet.name}
-                      className="py-1 first:border-t border-b border-[#ffffff1e] flex justify-between"
+                      className="py-1 first:border-t border-b border-[#ffffff1e] flex justify-between items-center"
                     >
                       <b className="uppercase text-[20px]">{planet.name}</b>
-                      {/* <FaEye /> */}
+                      <FaEye
+                        className="cursor-pointer hover:opacity-70"
+                        onClick={() => {
+                          cameraNav?.setFlyTo(planet);
+                        }}
+                      />
                     </div>
                   );
                 })}
