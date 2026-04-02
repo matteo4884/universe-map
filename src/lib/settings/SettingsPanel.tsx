@@ -63,7 +63,10 @@ export default function SettingsPanel({
             </span>
             <Toggle
               on={realisticMode}
-              onToggle={() => setRealisticMode(!realisticMode)}
+              onToggle={() => {
+                setRealisticMode(!realisticMode);
+                cameraNav?.setViewSnap("home");
+              }}
             />
           </div>
 

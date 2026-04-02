@@ -118,20 +118,32 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
 
     // Handle view snap — fixed positions that scale with blend
     if (viewSnap && !isAnimating.current) {
-      const [nx] = blendPosition(NEPTUNE_DIST_KM, 0, 0, blend);
+      // For "home", use TARGET blend (where the scale is going), not current
+      const targetBlend = viewSnap === "home"
+        ? (scaleCtx.realisticMode ? 1 : 0)
+        : blend;
+      const [nx] = blendPosition(NEPTUNE_DIST_KM, 0, 0, targetBlend);
       const viewDist = Math.abs(nx) * 1.4;
 
       startPosition.current.copy(camera.position);
       startTarget.current.copy(controls.target);
       startUp.current.copy(camera.up);
       endTarget.current.set(0, 0, 0);
+      endUp.current.set(0, 0, 1);
 
       if (viewSnap === "top") {
         endPosition.current.set(0, 0, viewDist);
         endUp.current.set(0, -1, 0);
-      } else {
+      } else if (viewSnap === "front") {
         endPosition.current.set(0, viewDist, 0);
-        endUp.current.set(0, 0, 1);
+      } else {
+        // "home" — midway between top and front
+        const angle = Math.PI / 4;
+        endPosition.current.set(
+          0,
+          viewDist * Math.sin(angle),
+          viewDist * Math.cos(angle)
+        );
       }
 
       animationDuration.current = 1.0;

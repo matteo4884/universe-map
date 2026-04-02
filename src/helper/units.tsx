@@ -129,13 +129,21 @@ const J2000_JD = 2451545.0;
 const MS_PER_DAY = 86400000;
 const JD_UNIX_EPOCH = 2440587.5;
 const DEG_TO_RAD = Math.PI / 180;
+const TWO_PI = 2 * Math.PI;
+
+/**
+ * Earth Rotation Angle — exact sidereal rotation from UTC time.
+ * Direct IAU 2000 formula, no ambiguous reference direction.
+ */
+export function getEarthSpinAngle(now: Date): number {
+  const jd = now.getTime() / MS_PER_DAY + JD_UNIX_EPOCH;
+  const du = jd - J2000_JD;
+  return TWO_PI * (0.7790572732640 + 1.00273781191135448 * du);
+}
 
 /**
  * Compute a body's current spin angle from IAU rotation parameters.
- * W0: prime meridian angle at J2000 (degrees)
- * spinRate: rotation rate (degrees/day, negative = retrograde)
- * now: current time (Date)
- * Returns angle in radians.
+ * For non-Earth bodies.
  */
 export function getSpinAngle(W0: number, spinRate: number, now: Date): number {
   const jd = now.getTime() / MS_PER_DAY + JD_UNIX_EPOCH;

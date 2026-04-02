@@ -161,6 +161,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
             yearLength: "27.3 days",
             orbitalSpeed: 1.0,
             axialTilt: 1.54,
+            poleRA: 269.99,
+            poleDec: 66.54,
             eccentricity: 0.0549,
             magneticField: false,
             rings: false,

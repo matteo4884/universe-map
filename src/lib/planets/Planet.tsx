@@ -3,7 +3,7 @@ import { ScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
 import { useLoader, useThree, useFrame } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinAngle } from "../../helper/units";
+import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinAngle, getEarthSpinAngle } from "../../helper/units";
 import Moon from "../moons/Moon";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
@@ -63,7 +63,10 @@ export default function Planet({
   const spinRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
-    if (spinRef.current && planetObj.info.spinW0 != null && planetObj.info.spinRate != null) {
+    if (!spinRef.current) return;
+    if (isEarth) {
+      spinRef.current.rotation.y = getEarthSpinAngle(new Date());
+    } else if (planetObj.info.spinW0 != null && planetObj.info.spinRate != null) {
       spinRef.current.rotation.y = getSpinAngle(
         planetObj.info.spinW0,
         planetObj.info.spinRate,
@@ -100,6 +103,7 @@ export default function Planet({
       <Moon
         position={moonPosition}
         size={moonSize}
+        moonObj={moon}
         key={`${starObj.id}-${planetObj.id}-${moon.id}`}
       />
     );
