@@ -5,22 +5,52 @@ import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { CameraNavigationContext } from "../../context/cameraNavigation";
 import { ScaleDistanceScaleContext } from "../../context/contexts";
 import { ScaleDistance, ScaleEarthUnitSize } from "../../helper/units";
-import { CELESTIAL_BODIES } from "../../data";
-import { PlanetParam } from "../../data";
+import { SOLAR_SYSTEM, CelestialBody } from "../../data";
 
 interface CameraFlyProps {
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
 }
 
-function computePlanetPosition(planet: PlanetParam, scaleDistance: number): THREE.Vector3 {
-  const star = CELESTIAL_BODIES[0];
-  const x = ScaleDistance({ distance: 0, scale: scaleDistance });
-  const y = ScaleDistance({ distance: 0, scale: scaleDistance });
-  const z =
-    ScaleDistance({ distance: planet.distanceFromStar, scale: scaleDistance }) +
-    ScaleEarthUnitSize({ size: star.radius }) +
-    ScaleEarthUnitSize({ size: planet.radius });
-  return new THREE.Vector3(x, y, z);
+function computeBodyPosition(
+  body: CelestialBody,
+  scaleDistance: number
+): THREE.Vector3 {
+  if (body.type === "star") {
+    return new THREE.Vector3(0, 0, 0);
+  }
+
+  if (body.type === "planet") {
+    const star = SOLAR_SYSTEM;
+    const x = ScaleDistance({ distance: 0, scale: scaleDistance });
+    const y = ScaleDistance({ distance: 0, scale: scaleDistance });
+    const z =
+      ScaleDistance({ distance: body.distanceFromParent, scale: scaleDistance }) +
+      ScaleEarthUnitSize({ size: star.radius }) +
+      ScaleEarthUnitSize({ size: body.radius });
+    return new THREE.Vector3(x, y, z);
+  }
+
+  // Moon: find parent planet, compute planet pos, then add moon offset
+  if (body.type === "moon") {
+    const parentPlanet = SOLAR_SYSTEM.children.find((p) =>
+      p.children.some((m) => m.id === body.id && m.name === body.name)
+    );
+    if (!parentPlanet) return new THREE.Vector3(0, 0, 0);
+
+    const planetPos = computeBodyPosition(parentPlanet, scaleDistance);
+    const moonOffset =
+      ScaleDistance({ distance: body.distanceFromParent, scale: scaleDistance }) +
+      ScaleEarthUnitSize({ size: parentPlanet.radius }) +
+      ScaleEarthUnitSize({ size: body.radius });
+
+    return new THREE.Vector3(
+      planetPos.x + moonOffset,
+      planetPos.y + moonOffset,
+      planetPos.z
+    );
+  }
+
+  return new THREE.Vector3(0, 0, 0);
 }
 
 export default function CameraFly({ controlsRef }: CameraFlyProps) {
@@ -36,8 +66,8 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
   const startTarget = useRef(new THREE.Vector3());
   const endPosition = useRef(new THREE.Vector3());
   const endTarget = useRef(new THREE.Vector3());
-  const currentPlanetRadius = useRef(0);
-  const currentPlanetPos = useRef(new THREE.Vector3());
+  const currentBodyRadius = useRef(0);
+  const currentBodyPos = useRef(new THREE.Vector3());
 
   useFrame((_, delta) => {
     if (!cameraNav || !contextScaleDistance) return;
@@ -49,19 +79,19 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
 
     // Start a new fly-to animation
     if (flyTo && !isAnimating.current) {
-      const planetPos = computePlanetPosition(flyTo, scaleDistance);
-      const planetRadius = ScaleEarthUnitSize({ size: flyTo.radius });
+      const bodyPos = computeBodyPosition(flyTo, scaleDistance);
+      const bodyRadius = ScaleEarthUnitSize({ size: flyTo.radius });
 
-      // Camera landing position: radius * 3 away, offset up by radius * 1.5
+      // Camera landing position: radius * 3 in front, offset up by radius * 1.5
       const cameraTarget = new THREE.Vector3(
-        planetPos.x,
-        planetPos.y + planetRadius * 1.5,
-        planetPos.z + planetRadius * 3
+        bodyPos.x,
+        bodyPos.y + bodyRadius * 1.5,
+        bodyPos.z - bodyRadius * 3
       );
 
       // Calculate animation duration proportional to distance (0.8s - 3s)
       const dist = camera.position.distanceTo(cameraTarget);
-      const maxDist = 500000; // approximate max scene distance
+      const maxDist = 500000;
       const t = Math.min(dist / maxDist, 1);
       animationDuration.current = 0.8 + t * 2.2;
 
@@ -69,16 +99,15 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
       startPosition.current.copy(camera.position);
       startTarget.current.copy(controls.target);
       endPosition.current.copy(cameraTarget);
-      endTarget.current.copy(planetPos);
-      currentPlanetRadius.current = planetRadius;
-      currentPlanetPos.current.copy(planetPos);
+      endTarget.current.copy(bodyPos);
+      currentBodyRadius.current = bodyRadius;
+      currentBodyPos.current.copy(bodyPos);
 
       // Begin animation
       animationProgress.current = 0;
       isAnimating.current = true;
       controls.enabled = false;
 
-      // Clear flyTo so clicking the same planet again works
       setFlyTo(null);
     }
 
@@ -98,20 +127,17 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
       if (rawT >= 1) {
         isAnimating.current = false;
         controls.enabled = true;
-        controls.minDistance = currentPlanetRadius.current * 1.5;
+        controls.minDistance = currentBodyRadius.current * 1.5;
         controls.update();
       }
     }
 
-    // minDistance reset: when far enough from planet, remove the constraint
-    if (
-      !isAnimating.current &&
-      currentPlanetRadius.current > 0
-    ) {
-      const distToPlanet = camera.position.distanceTo(currentPlanetPos.current);
-      if (distToPlanet > currentPlanetRadius.current * 20) {
+    // minDistance reset: when far enough from body, remove the constraint
+    if (!isAnimating.current && currentBodyRadius.current > 0) {
+      const distToBody = camera.position.distanceTo(currentBodyPos.current);
+      if (distToBody > currentBodyRadius.current * 20) {
         controls.minDistance = 0;
-        currentPlanetRadius.current = 0;
+        currentBodyRadius.current = 0;
       }
     }
   });
