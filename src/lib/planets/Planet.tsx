@@ -1,11 +1,13 @@
-import { useState, useContext, useRef } from "react";
+import { useState, useContext, useRef, useMemo } from "react";
 import { ScaleDistanceScaleContext } from "../../context/contexts";
+import { EphemerisContext } from "../../context/ephemeris";
 import { useLoader, useThree, useFrame } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { ScaleEarthUnitSize, ScaleDistance } from "../../helper/units";
+import { ScaleEarthUnitSize } from "../../helper/units";
+import { KM_PER_UNIT } from "../../services/horizons";
 import Moon from "../moons/Moon";
 import * as THREE from "three";
-import { Html } from "@react-three/drei";
+import { Html, Line } from "@react-three/drei";
 
 interface PlanetProps {
   map: string;
@@ -14,6 +16,7 @@ interface PlanetProps {
   rotation: number;
   planetObj: CelestialBody;
   starObj: CelestialBody;
+  showOrbits?: boolean;
 }
 
 export default function Planet({
@@ -23,6 +26,7 @@ export default function Planet({
   rotation,
   planetObj,
   starObj,
+  showOrbits = true,
 }: PlanetProps) {
   const contextScaleDistance = useContext(ScaleDistanceScaleContext);
   if (!contextScaleDistance)
@@ -30,6 +34,7 @@ export default function Planet({
       "MyComponent must be used within ScaleDistanceScaleProvider"
     );
   const { scaleDistance } = contextScaleDistance;
+  const { positions, trajectories } = useContext(EphemerisContext);
   const isEarth = map === "earth";
 
   const textureMap: Record<string, string> = {
@@ -54,27 +59,51 @@ export default function Planet({
     isEarth ? "/2k_earth_clouds.jpg" : `/${texture}`
   );
 
-  const moons = planetObj.children.map((moon) => (
-    <Moon
-      position={[
-        ScaleDistance({
-          distance: moon.distanceFromParent,
-          scale: scaleDistance,
-        }) +
-          ScaleEarthUnitSize({ size: planetObj.radius }) +
-          ScaleEarthUnitSize({ size: moon.radius }),
-        ScaleDistance({
-          distance: moon.distanceFromParent,
-          scale: scaleDistance,
-        }) +
-          ScaleEarthUnitSize({ size: planetObj.radius }) +
-          ScaleEarthUnitSize({ size: moon.radius }),
-        0,
-      ]}
-      size={ScaleEarthUnitSize({ size: moon.radius })}
-      key={`${starObj.id}-${planetObj.id}-${moon.id}`}
-    />
-  ));
+  const moons = planetObj.children.map((moon) => {
+    let moonPosition: [number, number, number];
+
+    if (positions && positions[moon.horizonsId] && positions[planetObj.horizonsId]) {
+      const moonPos = positions[moon.horizonsId];
+      const planetPos = positions[planetObj.horizonsId];
+      moonPosition = [
+        (moonPos.x - planetPos.x) / KM_PER_UNIT / scaleDistance,
+        (moonPos.y - planetPos.y) / KM_PER_UNIT / scaleDistance,
+        (moonPos.z - planetPos.z) / KM_PER_UNIT / scaleDistance,
+      ];
+    } else {
+      const offset =
+        moon.distanceFromParent / KM_PER_UNIT / scaleDistance +
+        ScaleEarthUnitSize({ size: planetObj.radius }) +
+        ScaleEarthUnitSize({ size: moon.radius });
+      moonPosition = [offset, offset, 0];
+    }
+
+    return (
+      <Moon
+        position={moonPosition}
+        size={ScaleEarthUnitSize({ size: moon.radius })}
+        key={`${starObj.id}-${planetObj.id}-${moon.id}`}
+      />
+    );
+  });
+
+  const orbitPoints = useMemo(() => {
+    if (!trajectories || !trajectories[planetObj.horizonsId]) return null;
+    return trajectories[planetObj.horizonsId].map(
+      (p) =>
+        new THREE.Vector3(
+          p.x / KM_PER_UNIT / scaleDistance,
+          p.y / KM_PER_UNIT / scaleDistance,
+          p.z / KM_PER_UNIT / scaleDistance
+        )
+    );
+  }, [trajectories, planetObj.horizonsId, scaleDistance]);
+
+  const negPosition: [number, number, number] = [
+    -(position as [number, number, number])[0],
+    -(position as [number, number, number])[1],
+    -(position as [number, number, number])[2],
+  ];
 
   const [visible, setVisible] = useState(false);
   const { camera } = useThree();
@@ -148,6 +177,18 @@ export default function Planet({
           </div>
           {/* <div className="w-6 h-6 rounded-full absolute left-0 right-0 top-0 bottom-0 m-auto border border-[#fff]"></div> */}
         </Html>
+      )}
+
+      {showOrbits && orbitPoints && orbitPoints.length > 1 && (
+        <group position={negPosition}>
+          <Line
+            points={orbitPoints}
+            color="white"
+            lineWidth={0.5}
+            transparent
+            opacity={0.1}
+          />
+        </group>
       )}
 
       {moons}
