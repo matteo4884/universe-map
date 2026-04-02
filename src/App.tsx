@@ -5,12 +5,12 @@ import { OrbitControls } from "@react-three/drei";
 import { useState, useContext, useRef } from "react";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import CameraFly from "./lib/camera/CameraFly";
-import { CELESTIAL_BODIES } from "./data";
+import { CELESTIAL_BODIES, SOLAR_SYSTEM } from "./data";
 import { ScaleEarthUnitSize } from "./helper/units";
 import StarField from "./lib/starfield/Starfield";
 import Star from "./lib/stars/Star";
-import { StarParam } from "./data";
-import Card from "./lib/cards/Card";
+import CelestialCard from "./lib/cards/CelestialCard";
+import MobileSheet from "./lib/cards/MobileSheet";
 import { ScaleDistanceScaleContext } from "./context/contexts";
 
 const BACKGROUND_COLOR = new THREE.Color(0, 0, 0);
@@ -24,7 +24,6 @@ function App() {
   const { scaleDistance, setScaleDistance } = contextScaleDistance;
 
   const [visible, setVisible] = useState(true);
-  const [info] = useState<StarParam | null>(CELESTIAL_BODIES[0] ?? null);
   const controlsRef = useRef<OrbitControlsImpl>(null);
 
   const stars = CELESTIAL_BODIES.map((star) => (
@@ -111,7 +110,8 @@ function App() {
         </div>
         {/* <div>Scale size: 1 : {SCALE_SIZE}</div> */}
       </div>
-      <Card visible={visible} info={info} />
+      <CelestialCard root={SOLAR_SYSTEM} visible={visible} />
+      <MobileSheet root={SOLAR_SYSTEM} visible={visible} />
       <div className="fixed z-[999999999] p-1 px-2 rounded-tr-md bg-[#00000065] bottom-0 left-0 text-[#fff] text-[11px] bg-blur-custom">
         Developed with ❤︎ by{" "}
         <a href="https://matteobeu.com" target="_blank" className="underline">
