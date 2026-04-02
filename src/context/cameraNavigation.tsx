@@ -1,9 +1,9 @@
 import { createContext, useState } from "react";
-import { PlanetParam } from "../data";
+import { CelestialBody } from "../data";
 
 export type CameraNavigationContextType = {
-  flyTo: PlanetParam | null;
-  setFlyTo: (planet: PlanetParam | null) => void;
+  flyTo: CelestialBody | null;
+  setFlyTo: (body: CelestialBody | null) => void;
 };
 
 export const CameraNavigationContext = createContext<
@@ -15,7 +15,7 @@ export function CameraNavigationProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [flyTo, setFlyTo] = useState<PlanetParam | null>(null);
+  const [flyTo, setFlyTo] = useState<CelestialBody | null>(null);
 
   return (
     <CameraNavigationContext.Provider value={{ flyTo, setFlyTo }}>

@@ -1,5 +1,4 @@
-import { CELESTIAL_BODIES } from "../data";
-import { SCALE_SIZE } from "../data";
+import { CELESTIAL_BODIES, SCALE_SIZE } from "../data";
 
 interface EarthUnitSizeProps {
   size: number;
@@ -12,8 +11,8 @@ interface ScaleDistanceProps {
 
 export function ScaleEarthUnitSize({ size }: EarthUnitSizeProps) {
   const earth = CELESTIAL_BODIES.find(
-    (body) => body.name === "sun"
-  )?.planets.find((planet) => planet.name === "earth");
+    (body) => body.name === "Sun"
+  )?.children.find((planet) => planet.name === "Earth");
 
   if (!earth) throw new Error("Earth not found");
   const SizeCompareToEarth = size / earth.radius;
@@ -33,8 +32,8 @@ export function ScaleEarthUnitSize({ size }: EarthUnitSizeProps) {
 
 export function ScaleDistance({ distance, scale }: ScaleDistanceProps) {
   const earth = CELESTIAL_BODIES.find(
-    (body) => body.name === "sun"
-  )?.planets.find((planet) => planet.name === "earth");
+    (body) => body.name === "Sun"
+  )?.children.find((planet) => planet.name === "Earth");
   if (!earth) throw new Error("Earth not found");
   const scaledDistance = distance / scale / earth.radius;
   return scaledDistance;
