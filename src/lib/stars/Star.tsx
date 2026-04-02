@@ -2,7 +2,7 @@ import { useRef, useContext, useMemo } from "react";
 import { ScaleContext } from "../../context/contexts";
 import { useLoader, useFrame, useThree } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { blendPosition, blendRadius, KM_PER_UNIT, poleToQuaternion } from "../../helper/units";
+import { blendPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinAngle } from "../../helper/units";
 import { EphemerisContext } from "../../context/ephemeris";
 import Planet from "../planets/Planet";
 import * as THREE from "three";
@@ -48,8 +48,10 @@ export default function Star({
   }
 
   useFrame(() => {
-    if (glowRef.current) {
-      glowRef.current.rotation.y += 0.002;
+    if (starObj.info.spinW0 != null && starObj.info.spinRate != null) {
+      const angle = getSpinAngle(starObj.info.spinW0, starObj.info.spinRate, new Date());
+      if (meshRef.current) meshRef.current.rotation.y = angle;
+      if (glowRef.current) glowRef.current.rotation.y = angle;
     }
   });
 

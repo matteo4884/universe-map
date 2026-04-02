@@ -124,3 +124,21 @@ export function poleToQuaternion(
 
   return new THREE.Quaternion().setFromUnitVectors(_defaultPole, targetPole);
 }
+
+const J2000_JD = 2451545.0;
+const MS_PER_DAY = 86400000;
+const JD_UNIX_EPOCH = 2440587.5;
+const DEG_TO_RAD = Math.PI / 180;
+
+/**
+ * Compute a body's current spin angle from IAU rotation parameters.
+ * W0: prime meridian angle at J2000 (degrees)
+ * spinRate: rotation rate (degrees/day, negative = retrograde)
+ * now: current time (Date)
+ * Returns angle in radians.
+ */
+export function getSpinAngle(W0: number, spinRate: number, now: Date): number {
+  const jd = now.getTime() / MS_PER_DAY + JD_UNIX_EPOCH;
+  const d = jd - J2000_JD;
+  return ((W0 + spinRate * d) % 360) * DEG_TO_RAD;
+}

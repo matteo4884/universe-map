@@ -3,7 +3,7 @@ import { ScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
 import { useLoader, useThree, useFrame } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion } from "../../helper/units";
+import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinAngle } from "../../helper/units";
 import Moon from "../moons/Moon";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
@@ -60,6 +60,18 @@ export default function Planet({
     return new THREE.Quaternion();
   }, [planetObj.info.poleRA, planetObj.info.poleDec]);
 
+  const spinRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (spinRef.current && planetObj.info.spinW0 != null && planetObj.info.spinRate != null) {
+      spinRef.current.rotation.y = getSpinAngle(
+        planetObj.info.spinW0,
+        planetObj.info.spinRate,
+        new Date()
+      );
+    }
+  });
+
   const moons = planetObj.children.map((moon) => {
     let moonPosition: [number, number, number];
 
@@ -111,33 +123,35 @@ export default function Planet({
   return (
     <group position={position}>
       <group quaternion={poleQuat}>
-        {isEarth ? (
-          <group>
+        <group ref={spinRef}>
+          {isEarth ? (
+            <group>
+              <mesh>
+                <sphereGeometry args={[size, 64, 64]} />
+                <meshStandardMaterial
+                  map={colorMap}
+                  emissiveMap={nightMap}
+                  emissiveIntensity={1.2}
+                  emissive={new THREE.Color(0xffffff)}
+                />
+              </mesh>
+              <mesh>
+                <sphereGeometry args={[size + 0.002, 64, 64]} />
+                <meshStandardMaterial
+                  map={cloudMap}
+                  transparent={true}
+                  opacity={0.5}
+                  depthWrite={false}
+                />
+              </mesh>
+            </group>
+          ) : (
             <mesh>
               <sphereGeometry args={[size, 64, 64]} />
-              <meshStandardMaterial
-                map={colorMap}
-                emissiveMap={nightMap}
-                emissiveIntensity={1.2}
-                emissive={new THREE.Color(0xffffff)}
-              />
+              <meshStandardMaterial map={colorMap} />
             </mesh>
-            <mesh>
-              <sphereGeometry args={[size + 0.002, 64, 64]} />
-              <meshStandardMaterial
-                map={cloudMap}
-                transparent={true}
-                opacity={0.5}
-                depthWrite={false}
-              />
-            </mesh>
-          </group>
-        ) : (
-          <mesh>
-            <sphereGeometry args={[size, 64, 64]} />
-            <meshStandardMaterial map={colorMap} />
-          </mesh>
-        )}
+          )}
+        </group>
       </group>
 
       {visible && (

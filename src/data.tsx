@@ -19,6 +19,8 @@ export interface CelestialBody {
     axialTilt: number;
     poleRA?: number;  // Right Ascension of north pole (equatorial J2000, degrees)
     poleDec?: number; // Declination of north pole (equatorial J2000, degrees)
+    spinW0?: number;    // Prime meridian angle at J2000 epoch (degrees)
+    spinRate?: number;  // Rotation rate (degrees/day, negative = retrograde)
     eccentricity: number;
     magneticField: boolean;
     rings: boolean;
@@ -47,6 +49,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
     axialTilt: 7.25,
     poleRA: 286.13,
     poleDec: 63.87,
+    spinW0: 84.176,
+    spinRate: 14.1844,
     eccentricity: 0,
     magneticField: true,
     rings: false,
@@ -73,6 +77,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 0.03,
         poleRA: 281.01,
         poleDec: 61.41,
+        spinW0: 329.5988,
+        spinRate: 6.1385108,
         eccentricity: 0.2056,
         magneticField: true,
         rings: false,
@@ -100,6 +106,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 177.36,
         poleRA: 272.76,
         poleDec: 67.16,
+        spinW0: 160.20,
+        spinRate: -1.4813688,
         eccentricity: 0.0067,
         magneticField: false,
         rings: false,
@@ -127,6 +135,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 23.44,
         poleRA: 0.00,
         poleDec: 90.00,
+        spinW0: 190.147,
+        spinRate: 360.9856235,
         eccentricity: 0.0167,
         magneticField: true,
         rings: false,
@@ -180,6 +190,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 25.19,
         poleRA: 317.68,
         poleDec: 52.89,
+        spinW0: 176.63,
+        spinRate: 350.8919830,
         eccentricity: 0.0935,
         magneticField: false,
         rings: false,
@@ -258,6 +270,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 3.13,
         poleRA: 268.06,
         poleDec: 64.50,
+        spinW0: 284.95,
+        spinRate: 870.5360000,
         eccentricity: 0.0489,
         magneticField: true,
         rings: true,
@@ -285,6 +299,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 26.73,
         poleRA: 40.60,
         poleDec: 83.54,
+        spinW0: 38.90,
+        spinRate: 810.7939024,
         eccentricity: 0.0565,
         magneticField: true,
         rings: true,
@@ -312,6 +328,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 97.77,
         poleRA: 257.31,
         poleDec: -15.18,
+        spinW0: 203.81,
+        spinRate: -501.1600928,
         eccentricity: 0.0457,
         magneticField: true,
         rings: true,
@@ -339,6 +357,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         axialTilt: 28.32,
         poleRA: 299.36,
         poleDec: 43.46,
+        spinW0: 253.18,
+        spinRate: 536.3128492,
         eccentricity: 0.0113,
         magneticField: true,
         rings: true,
