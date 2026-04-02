@@ -1,12 +1,13 @@
 import { CELESTIAL_BODIES, SCALE_SIZE } from "../data";
 
-interface EarthUnitSizeProps {
-  size: number;
+export const KM_PER_UNIT = 6371; // 1 Three.js unit = 1 Earth radius
+
+export function kmToUnits(km: number): number {
+  return km / KM_PER_UNIT;
 }
 
-interface ScaleDistanceProps {
-  distance: number;
-  scale: number;
+interface EarthUnitSizeProps {
+  size: number;
 }
 
 export function ScaleEarthUnitSize({ size }: EarthUnitSizeProps) {
@@ -28,13 +29,4 @@ export function ScaleEarthUnitSize({ size }: EarthUnitSizeProps) {
   } else {
     throw new Error("'scale' cannot be lower than 1");
   }
-}
-
-export function ScaleDistance({ distance, scale }: ScaleDistanceProps) {
-  const earth = CELESTIAL_BODIES.find(
-    (body) => body.name === "Sun"
-  )?.children.find((planet) => planet.name === "Earth");
-  if (!earth) throw new Error("Earth not found");
-  const scaledDistance = distance / scale / earth.radius;
-  return scaledDistance;
 }
