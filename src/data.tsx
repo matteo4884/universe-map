@@ -17,6 +17,8 @@ export interface CelestialBody {
     yearLength: string;
     orbitalSpeed: number;
     axialTilt: number;
+    poleRA?: number;  // Right Ascension of north pole (equatorial J2000, degrees)
+    poleDec?: number; // Declination of north pole (equatorial J2000, degrees)
     eccentricity: number;
     magneticField: boolean;
     rings: boolean;
@@ -43,6 +45,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
     yearLength: "225 million years",
     orbitalSpeed: 220,
     axialTilt: 7.25,
+    poleRA: 286.13,
+    poleDec: 63.87,
     eccentricity: 0,
     magneticField: true,
     rings: false,
@@ -67,6 +71,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "88 days",
         orbitalSpeed: 47.4,
         axialTilt: 0.03,
+        poleRA: 281.01,
+        poleDec: 61.41,
         eccentricity: 0.2056,
         magneticField: true,
         rings: false,
@@ -92,6 +98,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "225 days",
         orbitalSpeed: 35.0,
         axialTilt: 177.36,
+        poleRA: 272.76,
+        poleDec: 67.16,
         eccentricity: 0.0067,
         magneticField: false,
         rings: false,
@@ -117,6 +125,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "365.25 days",
         orbitalSpeed: 29.8,
         axialTilt: 23.44,
+        poleRA: 0.00,
+        poleDec: 90.00,
         eccentricity: 0.0167,
         magneticField: true,
         rings: false,
@@ -168,6 +178,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "687 days",
         orbitalSpeed: 24.1,
         axialTilt: 25.19,
+        poleRA: 317.68,
+        poleDec: 52.89,
         eccentricity: 0.0935,
         magneticField: false,
         rings: false,
@@ -244,6 +256,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "4,333 days",
         orbitalSpeed: 13.1,
         axialTilt: 3.13,
+        poleRA: 268.06,
+        poleDec: 64.50,
         eccentricity: 0.0489,
         magneticField: true,
         rings: true,
@@ -269,6 +283,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "10,759 days",
         orbitalSpeed: 9.7,
         axialTilt: 26.73,
+        poleRA: 40.60,
+        poleDec: 83.54,
         eccentricity: 0.0565,
         magneticField: true,
         rings: true,
@@ -294,6 +310,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "30,687 days",
         orbitalSpeed: 6.8,
         axialTilt: 97.77,
+        poleRA: 257.31,
+        poleDec: -15.18,
         eccentricity: 0.0457,
         magneticField: true,
         rings: true,
@@ -319,6 +337,8 @@ export const SOLAR_SYSTEM: CelestialBody = {
         yearLength: "60,190 days",
         orbitalSpeed: 5.4,
         axialTilt: 28.32,
+        poleRA: 299.36,
+        poleDec: 43.46,
         eccentricity: 0.0113,
         magneticField: true,
         rings: true,

@@ -1,9 +1,8 @@
-import { useRef, useContext } from "react";
-import { ScaleDistanceScaleContext } from "../../context/contexts";
+import { useRef, useContext, useMemo } from "react";
+import { ScaleContext } from "../../context/contexts";
 import { useLoader, useFrame, useThree } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { ScaleEarthUnitSize } from "../../helper/units";
-import { KM_PER_UNIT } from "../../services/horizons";
+import { blendPosition, blendRadius, KM_PER_UNIT, poleToQuaternion } from "../../helper/units";
 import { EphemerisContext } from "../../context/ephemeris";
 import Planet from "../planets/Planet";
 import * as THREE from "three";
@@ -12,7 +11,6 @@ import { Line } from "@react-three/drei";
 interface StarProps {
   map: string;
   position: THREE.Vector3 | [x: number, y: number, z: number];
-  size: number;
   starObj: CelestialBody;
   visible: boolean;
   setVisible: React.Dispatch<React.SetStateAction<boolean>>;
@@ -22,18 +20,14 @@ interface StarProps {
 export default function Star({
   map,
   position,
-  size,
   starObj,
   visible,
   setVisible,
   showOrbits = true,
 }: StarProps) {
-  const contextScaleDistance = useContext(ScaleDistanceScaleContext);
-  if (!contextScaleDistance)
-    throw new Error(
-      "MyComponent must be used within ScaleDistanceScaleProvider"
-    );
-  const { scaleDistance } = contextScaleDistance;
+  const scaleCtx = useContext(ScaleContext);
+  if (!scaleCtx) throw new Error("Must be within ScaleProvider");
+  const { blend } = scaleCtx;
   const { positions, trajectories } = useContext(EphemerisContext);
 
   const glowRef = useRef<THREE.Mesh>(null);
@@ -76,31 +70,35 @@ export default function Star({
 
   const sunTexture = useLoader(THREE.TextureLoader, `/${texture}`);
 
+  // Sun radius blended
+  const sunSize = blendRadius(starObj.radius, blend);
+
+  const sunPoleQuat = useMemo(() => {
+    const { poleRA, poleDec } = starObj.info;
+    if (poleRA != null && poleDec != null) {
+      return poleToQuaternion(poleRA, poleDec);
+    }
+    return new THREE.Quaternion();
+  }, [starObj.info.poleRA, starObj.info.poleDec]);
+
   const planets = starObj.children.map((planet) => {
     let planetPosition: [number, number, number];
 
     if (positions && positions[planet.horizonsId]) {
       const pos = positions[planet.horizonsId];
-      planetPosition = [
-        pos.x / KM_PER_UNIT / scaleDistance,
-        pos.y / KM_PER_UNIT / scaleDistance,
-        pos.z / KM_PER_UNIT / scaleDistance,
-      ];
+      planetPosition = blendPosition(pos.x, pos.y, pos.z, blend);
     } else {
-      // Fallback to static position along Z axis
-      const fallbackZ =
-        planet.distanceFromParent / KM_PER_UNIT / scaleDistance +
-        ScaleEarthUnitSize({ size: starObj.radius }) +
-        ScaleEarthUnitSize({ size: planet.radius });
+      const fallbackZ = planet.distanceFromParent / KM_PER_UNIT + sunSize;
       planetPosition = [0, 0, fallbackZ];
     }
+
+    const planetSize = blendRadius(planet.radius, blend);
 
     return (
       <Planet
         map={planet.map}
         position={planetPosition}
-        size={ScaleEarthUnitSize({ size: planet.radius })}
-        rotation={planet.info.axialTilt}
+        size={planetSize}
         key={`${starObj.id}-${planet.id}`}
         planetObj={planet}
         starObj={starObj}
@@ -111,14 +109,14 @@ export default function Star({
 
   return visible ? (
     <group position={position}>
-      {/* Sfera visiva del Sole */}
       <mesh
         ref={meshRef}
+        quaternion={sunPoleQuat}
         onClick={() => {
           console.log("clicked");
         }}
       >
-        <sphereGeometry args={[size, 64, 64]} />
+        <sphereGeometry args={[sunSize, 64, 64]} />
         <meshStandardMaterial
           map={sunTexture}
           emissiveMap={sunTexture}
@@ -127,7 +125,7 @@ export default function Star({
         />
       </mesh>
       <mesh ref={glowRef}>
-        <sphereGeometry args={[size + 0.5, 64, 64]} />
+        <sphereGeometry args={[sunSize + 0.5, 64, 64]} />
         <meshStandardMaterial
           color={color}
           transparent
@@ -140,35 +138,29 @@ export default function Star({
 
       {planets}
 
-      {/* Orbit trajectory lines — rendered here (no rotation) */}
+      {/* Orbit trajectory lines */}
       {showOrbits &&
         trajectories &&
         starObj.children.map((planet) => {
           const traj = trajectories[planet.horizonsId];
           if (!traj || traj.length < 2) return null;
-          const points = traj.map(
-            (p) =>
-              new THREE.Vector3(
-                p.x / KM_PER_UNIT / scaleDistance,
-                p.y / KM_PER_UNIT / scaleDistance,
-                p.z / KM_PER_UNIT / scaleDistance
-              )
-          );
-          // Close the orbit by connecting last point back to first
+          const points = traj.map((p) => {
+            const pos = blendPosition(p.x, p.y, p.z, blend);
+            return new THREE.Vector3(pos[0], pos[1], pos[2]);
+          });
           points.push(points[0].clone());
           return (
             <Line
               key={`orbit-${planet.id}`}
               points={points}
               color="white"
-              lineWidth={0.5}
+              lineWidth={0.3}
               transparent
-              opacity={0.1}
+              opacity={0.03}
             />
           );
         })}
 
-      {/* Luce reale emessa */}
       <pointLight intensity={2} distance={5000000} decay={0} color={light} />
     </group>
   ) : null;

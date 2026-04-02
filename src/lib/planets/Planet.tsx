@@ -1,10 +1,9 @@
-import { useState, useContext, useRef } from "react";
-import { ScaleDistanceScaleContext } from "../../context/contexts";
+import { useState, useContext, useRef, useMemo } from "react";
+import { ScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
 import { useLoader, useThree, useFrame } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { ScaleEarthUnitSize } from "../../helper/units";
-import { KM_PER_UNIT } from "../../services/horizons";
+import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion } from "../../helper/units";
 import Moon from "../moons/Moon";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
@@ -13,7 +12,6 @@ interface PlanetProps {
   map: string;
   position: THREE.Vector3 | [x: number, y: number, z: number];
   size: number;
-  rotation: number;
   planetObj: CelestialBody;
   starObj: CelestialBody;
   showOrbits?: boolean;
@@ -23,16 +21,12 @@ export default function Planet({
   map,
   position,
   size,
-  rotation,
   planetObj,
   starObj,
 }: PlanetProps) {
-  const contextScaleDistance = useContext(ScaleDistanceScaleContext);
-  if (!contextScaleDistance)
-    throw new Error(
-      "MyComponent must be used within ScaleDistanceScaleProvider"
-    );
-  const { scaleDistance } = contextScaleDistance;
+  const scaleCtx = useContext(ScaleContext);
+  if (!scaleCtx) throw new Error("Must be within ScaleProvider");
+  const { blend } = scaleCtx;
   const { positions } = useContext(EphemerisContext);
   const isEarth = map === "earth";
 
@@ -58,29 +52,42 @@ export default function Planet({
     isEarth ? "/2k_earth_clouds.jpg" : `/${texture}`
   );
 
+  const poleQuat = useMemo(() => {
+    const { poleRA, poleDec } = planetObj.info;
+    if (poleRA != null && poleDec != null) {
+      return poleToQuaternion(poleRA, poleDec);
+    }
+    return new THREE.Quaternion();
+  }, [planetObj.info.poleRA, planetObj.info.poleDec]);
+
   const moons = planetObj.children.map((moon) => {
     let moonPosition: [number, number, number];
 
-    if (positions && positions[moon.horizonsId] && positions[planetObj.horizonsId]) {
+    if (
+      positions &&
+      positions[moon.horizonsId] &&
+      positions[planetObj.horizonsId]
+    ) {
       const moonPos = positions[moon.horizonsId];
       const planetPos = positions[planetObj.horizonsId];
-      moonPosition = [
-        (moonPos.x - planetPos.x) / KM_PER_UNIT / scaleDistance,
-        (moonPos.y - planetPos.y) / KM_PER_UNIT / scaleDistance,
-        (moonPos.z - planetPos.z) / KM_PER_UNIT / scaleDistance,
-      ];
+      // Relative position in km
+      const relX = moonPos.x - planetPos.x;
+      const relY = moonPos.y - planetPos.y;
+      const relZ = moonPos.z - planetPos.z;
+      moonPosition = blendMoonPosition(relX, relY, relZ, blend);
     } else {
       const offset =
-        moon.distanceFromParent / KM_PER_UNIT / scaleDistance +
-        ScaleEarthUnitSize({ size: planetObj.radius }) +
-        ScaleEarthUnitSize({ size: moon.radius });
+        moon.distanceFromParent / KM_PER_UNIT +
+        blendRadius(planetObj.radius, blend);
       moonPosition = [offset, offset, 0];
     }
+
+    const moonSize = blendRadius(moon.radius, blend);
 
     return (
       <Moon
         position={moonPosition}
-        size={ScaleEarthUnitSize({ size: moon.radius })}
+        size={moonSize}
         key={`${starObj.id}-${planetObj.id}-${moon.id}`}
       />
     );
@@ -102,43 +109,36 @@ export default function Planet({
   });
 
   return (
-    <group
-      position={position}
-      rotation={[0, 0, THREE.MathUtils.degToRad(rotation)]}
-      onClick={(e) => {
-        console.log(e);
-        console.log("scheda");
-      }}
-    >
-      {isEarth ? (
-        <group>
+    <group position={position}>
+      <group quaternion={poleQuat}>
+        {isEarth ? (
+          <group>
+            <mesh>
+              <sphereGeometry args={[size, 64, 64]} />
+              <meshStandardMaterial
+                map={colorMap}
+                emissiveMap={nightMap}
+                emissiveIntensity={1.2}
+                emissive={new THREE.Color(0xffffff)}
+              />
+            </mesh>
+            <mesh>
+              <sphereGeometry args={[size + 0.002, 64, 64]} />
+              <meshStandardMaterial
+                map={cloudMap}
+                transparent={true}
+                opacity={0.5}
+                depthWrite={false}
+              />
+            </mesh>
+          </group>
+        ) : (
           <mesh>
             <sphereGeometry args={[size, 64, 64]} />
-            <meshStandardMaterial
-              map={colorMap}
-              emissiveMap={nightMap}
-              emissiveIntensity={1.2}
-              emissive={new THREE.Color(0xffffff)}
-            />
+            <meshStandardMaterial map={colorMap} />
           </mesh>
-
-          {/* Sfera leggermente più grande per le nuvole */}
-          <mesh>
-            <sphereGeometry args={[size + 0.002, 64, 64]} />
-            <meshStandardMaterial
-              map={cloudMap}
-              transparent={true}
-              opacity={0.5}
-              depthWrite={false}
-            />
-          </mesh>
-        </group>
-      ) : (
-        <mesh>
-          <sphereGeometry args={[size, 64, 64]} />
-          <meshStandardMaterial map={colorMap} />
-        </mesh>
-      )}
+        )}
+      </group>
 
       {visible && (
         <Html
@@ -150,16 +150,14 @@ export default function Planet({
             className="px-2 py-1 rounded-md font-bold mb-16 bg-[#ffffff1e] hover:bg-[#919191] uppercase pointer-events-auto"
             onClick={(e) => {
               e.preventDefault();
-              //   console.log(e);
-              //   console.log("scheda");
             }}
           >
             {planetObj.name}
           </div>
-          {/* <div className="w-6 h-6 rounded-full absolute left-0 right-0 top-0 bottom-0 m-auto border border-[#fff]"></div> */}
         </Html>
       )}
 
+      {/* Moons outside rotation group — orbit is not affected by axial tilt */}
       {moons}
     </group>
   );
