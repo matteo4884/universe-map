@@ -2,7 +2,9 @@ import { useRef, useContext } from "react";
 import { ScaleDistanceScaleContext } from "../../context/contexts";
 import { useLoader, useFrame, useThree } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { ScaleEarthUnitSize, ScaleDistance } from "../../helper/units";
+import { ScaleEarthUnitSize } from "../../helper/units";
+import { KM_PER_UNIT } from "../../services/horizons";
+import { EphemerisContext } from "../../context/ephemeris";
 import Planet from "../planets/Planet";
 import * as THREE from "three";
 
@@ -13,6 +15,7 @@ interface StarProps {
   starObj: CelestialBody;
   visible: boolean;
   setVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  showOrbits?: boolean;
 }
 
 export default function Star({
@@ -22,6 +25,7 @@ export default function Star({
   starObj,
   visible,
   setVisible,
+  showOrbits = true,
 }: StarProps) {
   const contextScaleDistance = useContext(ScaleDistanceScaleContext);
   if (!contextScaleDistance)
@@ -29,6 +33,7 @@ export default function Star({
       "MyComponent must be used within ScaleDistanceScaleProvider"
     );
   const { scaleDistance } = contextScaleDistance;
+  const { positions } = useContext(EphemerisContext);
 
   const glowRef = useRef<THREE.Mesh>(null);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -70,26 +75,38 @@ export default function Star({
 
   const sunTexture = useLoader(THREE.TextureLoader, `/${texture}`);
 
-  const planets = starObj.children.map((planet) => (
-    <Planet
-      map={planet.map}
-      position={[
-        ScaleDistance({ distance: 0, scale: scaleDistance }),
-        ScaleDistance({ distance: 0, scale: scaleDistance }),
-        ScaleDistance({
-          distance: planet.distanceFromParent,
-          scale: scaleDistance,
-        }) +
-          ScaleEarthUnitSize({ size: starObj.radius }) +
-          ScaleEarthUnitSize({ size: planet.radius }),
-      ]}
-      size={ScaleEarthUnitSize({ size: planet.radius })}
-      rotation={planet.info.axialTilt}
-      key={`${starObj.id}-${planet.id}`}
-      planetObj={planet}
-      starObj={starObj}
-    />
-  ));
+  const planets = starObj.children.map((planet) => {
+    let planetPosition: [number, number, number];
+
+    if (positions && positions[planet.horizonsId]) {
+      const pos = positions[planet.horizonsId];
+      planetPosition = [
+        pos.x / KM_PER_UNIT / scaleDistance,
+        pos.y / KM_PER_UNIT / scaleDistance,
+        pos.z / KM_PER_UNIT / scaleDistance,
+      ];
+    } else {
+      // Fallback to static position along Z axis
+      const fallbackZ =
+        planet.distanceFromParent / KM_PER_UNIT / scaleDistance +
+        ScaleEarthUnitSize({ size: starObj.radius }) +
+        ScaleEarthUnitSize({ size: planet.radius });
+      planetPosition = [0, 0, fallbackZ];
+    }
+
+    return (
+      <Planet
+        map={planet.map}
+        position={planetPosition}
+        size={ScaleEarthUnitSize({ size: planet.radius })}
+        rotation={planet.info.axialTilt}
+        key={`${starObj.id}-${planet.id}`}
+        planetObj={planet}
+        starObj={starObj}
+        showOrbits={showOrbits}
+      />
+    );
+  });
 
   return visible ? (
     <group position={position}>
