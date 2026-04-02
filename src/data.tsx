@@ -8,6 +8,7 @@ export interface CelestialBody {
   image: string;
   radius: number;
   distanceFromParent: number;
+  horizonsId: string;
   info: {
     mass: string;
     gravity: number;
@@ -33,6 +34,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
   image: "sun.png",
   radius: 696340,
   distanceFromParent: 0,
+  horizonsId: "10",
   info: {
     mass: "1.989 × 10³⁰ kg",
     gravity: 274,
@@ -56,6 +58,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "mercury.png",
       radius: 2439.7,
       distanceFromParent: 57910000,
+      horizonsId: "199",
       info: {
         mass: "3.301 × 10²³ kg",
         gravity: 3.7,
@@ -80,6 +83,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "venus.png",
       radius: 6051.8,
       distanceFromParent: 108200000,
+      horizonsId: "299",
       info: {
         mass: "4.867 × 10²⁴ kg",
         gravity: 8.87,
@@ -104,6 +108,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "earth.png",
       radius: 6371,
       distanceFromParent: 149600000,
+      horizonsId: "399",
       info: {
         mass: "5.972 × 10²⁴ kg",
         gravity: 9.81,
@@ -127,6 +132,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
           image: "moon.png",
           radius: 1737,
           distanceFromParent: 384400,
+          horizonsId: "301",
           info: {
             mass: "7.342 × 10²² kg",
             gravity: 1.62,
@@ -153,6 +159,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "mars.png",
       radius: 3389.5,
       distanceFromParent: 227900000,
+      horizonsId: "499",
       info: {
         mass: "6.417 × 10²³ kg",
         gravity: 3.72,
@@ -176,6 +183,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
           image: "phobos.png",
           radius: 11.267,
           distanceFromParent: 9376,
+          horizonsId: "401",
           info: {
             mass: "1.066 × 10¹⁶ kg",
             gravity: 0.0057,
@@ -200,6 +208,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
           image: "deimos.png",
           radius: 6.2,
           distanceFromParent: 23463,
+          horizonsId: "402",
           info: {
             mass: "1.476 × 10¹⁵ kg",
             gravity: 0.003,
@@ -226,6 +235,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "jupiter.png",
       radius: 69911,
       distanceFromParent: 778500000,
+      horizonsId: "599",
       info: {
         mass: "1.898 × 10²⁷ kg",
         gravity: 24.79,
@@ -250,6 +260,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "saturn.png",
       radius: 58232,
       distanceFromParent: 1433000000,
+      horizonsId: "699",
       info: {
         mass: "5.683 × 10²⁶ kg",
         gravity: 10.44,
@@ -274,6 +285,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "uranus.png",
       radius: 25362,
       distanceFromParent: 2871000000,
+      horizonsId: "799",
       info: {
         mass: "8.681 × 10²⁵ kg",
         gravity: 8.87,
@@ -298,6 +310,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       image: "neptune.png",
       radius: 24622,
       distanceFromParent: 4495000000,
+      horizonsId: "899",
       info: {
         mass: "1.024 × 10²⁶ kg",
         gravity: 11.15,
