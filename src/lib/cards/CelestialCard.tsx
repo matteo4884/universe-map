@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { MdArrowForwardIos } from "react-icons/md";
 import { CelestialBody } from "../../data";
 import CelestialDetail from "./CelestialDetail";
 
@@ -50,7 +49,7 @@ export default function CelestialCard({ root, visible }: CelestialCardProps) {
       setIsTransitioning(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [path]);
+  }, [path, displayPath]);
 
   const navigateTo = (newPath: number[]) => {
     if (newPath.length > displayPath.length) {
@@ -79,7 +78,7 @@ export default function CelestialCard({ root, visible }: CelestialCardProps) {
           visible && open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="h-full w-[380px] bg-[#0a0a0fdd] bg-blur-custom p-6 overflow-y-auto text-white">
+        <div className="h-full w-[380px] bg-[#000000b3] bg-blur-custom p-6 overflow-y-auto custom-scrollbar text-white">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1 mb-4 text-xs text-[#666] flex-wrap">
             {breadcrumb.map((crumb, i) => (
@@ -108,21 +107,24 @@ export default function CelestialCard({ root, visible }: CelestialCardProps) {
               <CelestialDetail
                 body={body}
                 onSelectChild={handleSelectChild}
+                onGoBack={
+                  displayPath.length > 0
+                    ? () => navigateTo(displayPath.slice(0, -1))
+                    : undefined
+                }
               />
             </div>
           </div>
         </div>
 
-        {/* Toggle button */}
+        {/* Toggle tab */}
         {visible && (
-          <div className="absolute h-full flex items-center left-0 top-0 -translate-x-full text-white">
-            <div
-              className={`p-2 bg-[#ffffff33] mr-2 duration-150 rounded-full cursor-pointer hover:bg-[#ffffff67] ${
-                open ? "rotate-0" : "rotate-180"
-              }`}
-              onClick={() => setOpen((prev) => !prev)}
-            >
-              <MdArrowForwardIos />
+          <div
+            className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full cursor-pointer"
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            <div className="bg-[#000000b3] bg-blur-custom text-white text-[11px] uppercase tracking-[2px] py-3 px-2 rounded-l-lg writing-vertical hover:bg-[#ffffff25] transition-colors border border-r-0 border-[#ffffff15]">
+              {open ? "✕" : "☰ Solar System"}
             </div>
           </div>
         )}

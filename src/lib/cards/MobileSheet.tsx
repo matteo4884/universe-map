@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MdMenu, MdClose } from "react-icons/md";
+import { MdClose } from "react-icons/md";
 import { CelestialBody } from "../../data";
 import CelestialDetail from "./CelestialDetail";
 
@@ -42,13 +42,17 @@ export default function MobileSheet({ root, visible }: MobileSheetProps) {
 
   return (
     <>
-      {/* Floating button */}
-      <button
-        className="fixed z-[999999999] sm:hidden bottom-4 right-4 p-3 bg-[#ffffff33] bg-blur-custom rounded-full text-white cursor-pointer hover:bg-[#ffffff67]"
-        onClick={() => setOpen(true)}
-      >
-        <MdMenu size={24} />
-      </button>
+      {/* Bottom tab */}
+      {!open && (
+        <div
+          className="fixed z-[999999999] sm:hidden bottom-0 right-4 cursor-pointer"
+          onClick={() => setOpen(true)}
+        >
+          <div className="bg-[#000000b3] bg-blur-custom text-white text-[10px] uppercase tracking-[2px] px-4 py-2 rounded-t-lg border border-b-0 border-[#ffffff15] hover:bg-[#ffffff25] transition-colors">
+            ☰ Solar System
+          </div>
+        </div>
+      )}
 
       {/* Overlay */}
       {open && (
@@ -60,7 +64,7 @@ export default function MobileSheet({ root, visible }: MobileSheetProps) {
 
       {/* Bottom sheet */}
       <div
-        className={`fixed z-[9999999999] sm:hidden bottom-0 left-0 right-0 bg-[#0a0a0fee] bg-blur-custom rounded-t-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed z-[9999999999] sm:hidden bottom-0 left-0 right-0 bg-[#000000b3] bg-blur-custom rounded-t-2xl transition-transform duration-300 ease-in-out ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         style={{ height: "70vh" }}
@@ -79,7 +83,7 @@ export default function MobileSheet({ root, visible }: MobileSheetProps) {
         </button>
 
         {/* Content */}
-        <div className="px-5 pb-6 overflow-y-auto text-white" style={{ height: "calc(70vh - 48px)" }}>
+        <div className="px-5 pb-6 overflow-y-auto custom-scrollbar text-white" style={{ height: "calc(70vh - 48px)" }}>
           {/* Breadcrumb */}
           <div className="flex items-center gap-1 mb-4 text-xs text-[#666] flex-wrap">
             {breadcrumb.map((crumb, i) => (
@@ -102,6 +106,11 @@ export default function MobileSheet({ root, visible }: MobileSheetProps) {
           <CelestialDetail
             body={body}
             onSelectChild={(index) => setPath([...path, index])}
+            onGoBack={
+              path.length > 0
+                ? () => setPath(path.slice(0, -1))
+                : undefined
+            }
           />
         </div>
       </div>

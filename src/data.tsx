@@ -120,7 +120,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       },
       children: [
         {
-          id: 1,
+          id: 9,
           type: "moon",
           name: "Moon",
           map: "moon",
@@ -169,7 +169,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
       },
       children: [
         {
-          id: 1,
+          id: 10,
           type: "moon",
           name: "Phobos",
           map: "phobos",
@@ -193,7 +193,7 @@ export const SOLAR_SYSTEM: CelestialBody = {
           children: [],
         },
         {
-          id: 2,
+          id: 11,
           type: "moon",
           name: "Deimos",
           map: "deimos",

@@ -6,11 +6,13 @@ import { CameraNavigationContext } from "../../context/cameraNavigation";
 interface CelestialDetailProps {
   body: CelestialBody;
   onSelectChild: (index: number) => void;
+  onGoBack?: () => void;
 }
 
 export default function CelestialDetail({
   body,
   onSelectChild,
+  onGoBack,
 }: CelestialDetailProps) {
   const cameraNav = useContext(CameraNavigationContext);
 
@@ -132,22 +134,33 @@ export default function CelestialDetail({
             {body.children.map((child, index) => (
               <div
                 key={child.id}
-                className="py-2 first:border-t border-b border-[#ffffff1e] flex justify-between items-center"
+                className="py-2 first:border-t border-b border-[#ffffff1e] flex justify-between items-center cursor-pointer hover:bg-[#ffffff08] transition-colors px-1 -mx-1 rounded"
+                onClick={() => onSelectChild(index)}
               >
-                <span
-                  className="uppercase text-sm font-bold cursor-pointer hover:text-[#4a90d9] transition-colors"
-                  onClick={() => onSelectChild(index)}
-                >
+                <span className="uppercase text-sm font-bold">
                   {child.name}
                 </span>
                 <FaEye
-                  className="cursor-pointer hover:opacity-70 text-sm"
-                  onClick={() => cameraNav?.setFlyTo(child)}
+                  className="hover:opacity-70 text-sm flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cameraNav?.setFlyTo(child);
+                  }}
                 />
               </div>
             ))}
           </div>
         </div>
+      )}
+
+      {/* Back button */}
+      {onGoBack && (
+        <button
+          className="w-full py-2 text-[12px] text-[#888] uppercase tracking-[2px] cursor-pointer hover:text-white transition-colors"
+          onClick={onGoBack}
+        >
+          ← Back
+        </button>
       )}
     </div>
   );
