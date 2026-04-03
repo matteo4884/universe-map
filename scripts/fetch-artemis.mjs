@@ -3,7 +3,7 @@
 /**
  * Fetches live Artemis + Earth + Moon positions from JPL Horizons.
  * Run via cron every 5 minutes during the mission:
- *   */5 * * * * node /path/to/scripts/fetch-artemis.mjs
+ *   cron: every 5 minutes — node /path/to/scripts/fetch-artemis.mjs
  *
  * Output: public/data/artemis-live.json
  */
@@ -102,34 +102,47 @@ async function fetchBody(bodyId, startTime, stopTime) {
   return null;
 }
 
+async function log(msg) {
+  const fs = await import("fs");
+  const path = await import("path");
+  const logFile = path.join(process.cwd(), "scripts", "artemis-fetch.log");
+  fs.appendFileSync(logFile, msg + "\n");
+}
+
 async function main() {
   const now = new Date();
   const ahead = new Date(now.getTime() + 10 * 60 * 1000);
   const startTime = formatDate(now);
   const stopTime = formatDate(ahead);
 
-  console.log(`[fetch-artemis] ${now.toISOString()}`);
-
   const results = await Promise.all(
     BODIES.map(async (body) => {
       const result = await fetchBody(body.id, startTime, stopTime);
       if (!result) {
-        console.error(`  FAILED: ${body.key} (${body.id})`);
         return [body.key, null];
       }
       const parsed = parseResponse(result, body.needVelocity);
-      console.log(`  OK: ${body.key}`);
       return [body.key, parsed];
     })
   );
 
   const output = { fetchedAt: now.toISOString() };
+  const ok = [];
+  const failed = [];
   for (const [key, data] of results) {
-    if (data) output[key] = data;
+    if (data) {
+      output[key] = data;
+      ok.push(key);
+    } else {
+      failed.push(key);
+    }
   }
 
+  const status = failed.length === 0 ? "OK" : `PARTIAL (failed: ${failed.join(", ")})`;
+
   if (!output.spacecraft) {
-    console.error("  Spacecraft data missing — keeping previous file");
+    await log(`${now.toISOString()} FAIL — spacecraft missing, kept previous file`);
+    console.error(`[fetch-artemis] FAIL — spacecraft missing`);
     process.exit(1);
   }
 
@@ -137,10 +150,13 @@ async function main() {
   const path = await import("path");
   const outFile = path.join(process.cwd(), "public", "data", "artemis-live.json");
   fs.writeFileSync(outFile, JSON.stringify(output));
-  console.log(`  Saved to ${outFile}`);
+
+  await log(`${now.toISOString()} ${status} — ${ok.join(", ")}`);
+  console.log(`[fetch-artemis] ${status}`);
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
+  await log(`${new Date().toISOString()} FATAL — ${err.message}`);
   console.error("Fatal:", err);
   process.exit(1);
 });

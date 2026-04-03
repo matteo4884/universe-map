@@ -19,7 +19,7 @@ function formatKm(km: number): string {
 }
 
 export default function ArtemisHUD() {
-  const { mission, active, deactivate, telemetry, signalLost } = useContext(ArtemisModeContext);
+  const { mission, active, deactivate, telemetry, fetchedAt, dataOnline, setCameraTarget } = useContext(ArtemisModeContext);
   const [videoOpen, setVideoOpen] = useState(true);
   const [mobileVideoOpen, setMobileVideoOpen] = useState(false);
 
@@ -37,6 +37,9 @@ export default function ArtemisHUD() {
         <div className="text-[10px] text-[rgba(255,255,255,0.3)] mt-0.5 tracking-[1px]">
           MET {telemetry ? formatMET(telemetry.met) : "--"}
         </div>
+        <div className="text-[8px] text-[rgba(255,255,255,0.25)] mt-1.5 tracking-[3px] uppercase">
+          Realistic Scale
+        </div>
       </div>
 
       {/* TOP RIGHT: Crew (desktop) */}
@@ -50,21 +53,38 @@ export default function ArtemisHUD() {
       </div>
 
       {/* BOTTOM LEFT: Telemetry */}
-      <div className="absolute bottom-4 left-4 pointer-events-auto">
-        <div className="text-[9px] tracking-[3px] text-[rgba(255,255,255,0.4)] uppercase mb-2 hidden sm:block">
-          Telemetry {signalLost && <span className="text-red-500 ml-2">SIGNAL LOST</span>}
+      <div className="absolute bottom-6 left-6 pointer-events-auto">
+        {/* Desktop */}
+        <div className="hidden sm:block">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-[9px] tracking-[3px] text-[rgba(255,255,255,0.4)] uppercase">Telemetry</span>
+            <span className={`inline-flex items-center gap-1 text-[8px] ${dataOnline ? "text-[#00ff88]" : "text-[#ff6b35]"}`}>
+              <span className={`inline-block w-[5px] h-[5px] rounded-full ${dataOnline ? "bg-[#00ff88] shadow-[0_0_4px_#00ff88]" : "bg-[#ff6b35]"}`} />
+              {dataOnline ? "LIVE" : "OFFLINE"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-[11px]">
+            <span className="text-[rgba(255,255,255,0.5)]">DIST EARTH</span>
+            <span className="text-[#4a90d9] font-bold">{telemetry ? formatKm(telemetry.distEarth) : "--"}</span>
+            <span className="text-[rgba(255,255,255,0.5)]">DIST MOON</span>
+            <span className="text-[#4a90d9] font-bold">{telemetry ? formatKm(telemetry.distMoon) : "--"}</span>
+            <span className="text-[rgba(255,255,255,0.5)]">VELOCITY</span>
+            <span className="text-[#4a90d9] font-bold">{telemetry ? telemetry.velocity.toFixed(2) + " km/s" : "--"}</span>
+            <span className="text-[rgba(255,255,255,0.5)]">ALTITUDE</span>
+            <span className="text-[#4a90d9] font-bold">{telemetry ? formatKm(telemetry.altitude) : "--"}</span>
+          </div>
+          {fetchedAt && (
+            <div className="text-[10px] text-[rgba(255,255,255,0.35)] mt-3 tracking-[1px]">
+              Last update {new Date(fetchedAt).toLocaleTimeString()}
+            </div>
+          )}
         </div>
-        <div className="hidden sm:grid grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
-          <span className="text-[rgba(255,255,255,0.5)]">DIST EARTH</span>
-          <span className="text-[#4a90d9] font-bold">{telemetry ? formatKm(telemetry.distEarth) : "--"}</span>
-          <span className="text-[rgba(255,255,255,0.5)]">DIST MOON</span>
-          <span className="text-[#4a90d9] font-bold">{telemetry ? formatKm(telemetry.distMoon) : "--"}</span>
-          <span className="text-[rgba(255,255,255,0.5)]">VELOCITY</span>
-          <span className="text-[#4a90d9] font-bold">{telemetry ? telemetry.velocity.toFixed(2) + " km/s" : "--"}</span>
-          <span className="text-[rgba(255,255,255,0.5)]">ALTITUDE</span>
-          <span className="text-[#4a90d9] font-bold">{telemetry ? formatKm(telemetry.altitude) : "--"}</span>
-        </div>
-        <div className="flex sm:hidden gap-4 text-[9px]">
+        {/* Mobile */}
+        <div className="flex sm:hidden items-center gap-4 text-[9px]">
+          <span className={`inline-flex items-center gap-1 ${dataOnline ? "text-[#00ff88]" : "text-[#ff6b35]"}`}>
+            <span className={`inline-block w-[4px] h-[4px] rounded-full ${dataOnline ? "bg-[#00ff88]" : "bg-[#ff6b35]"}`} />
+            {dataOnline ? "LIVE" : "OFF"}
+          </span>
           <div>
             <span className="text-[rgba(255,255,255,0.4)]">ALT </span>
             <span className="text-[#4a90d9]">{telemetry ? formatKm(telemetry.altitude) : "--"}</span>
@@ -73,7 +93,6 @@ export default function ArtemisHUD() {
             <span className="text-[rgba(255,255,255,0.4)]">VEL </span>
             <span className="text-[#4a90d9]">{telemetry ? telemetry.velocity.toFixed(1) + " km/s" : "--"}</span>
           </div>
-          {signalLost && <span className="text-red-500">NO SIGNAL</span>}
         </div>
       </div>
 
@@ -82,8 +101,8 @@ export default function ArtemisHUD() {
         {videoOpen && (
           <div className="hidden sm:block relative">
             <iframe
-              width="240"
-              height="135"
+              width="360"
+              height="203"
               src={`https://www.youtube.com/embed/${mission.youtubeVideoId}?autoplay=1&mute=1`}
               allow="autoplay; encrypted-media"
               allowFullScreen
@@ -125,15 +144,30 @@ export default function ArtemisHUD() {
         )}
         <button
           onClick={deactivate}
-          className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.4)] uppercase cursor-pointer py-1 px-2 border border-[rgba(255,255,255,0.1)] rounded hover:text-white hover:border-[rgba(255,255,255,0.3)] transition-colors"
+          className="text-[11px] tracking-[2px] text-white uppercase cursor-pointer py-2 px-4 border border-[rgba(255,255,255,0.3)] rounded bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.18)] transition-colors"
         >
-          Exit Mission ✕
+          ✕ Exit Mission
         </button>
       </div>
 
-      {/* CENTER BOTTOM: Timeline (desktop) */}
+      {/* CENTER BOTTOM: Body navigation + Timeline (desktop) */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden sm:flex flex-col items-center gap-3 pointer-events-auto">
+        {/* Body buttons */}
+        <div className="flex items-center gap-2">
+          {(["earth", "orion", "moon"] as const).map((body) => (
+            <button
+              key={body}
+              onClick={() => setCameraTarget(body)}
+              className="text-[10px] tracking-[2px] uppercase py-1.5 px-4 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] transition-colors cursor-pointer text-[rgba(255,255,255,0.6)] hover:text-white"
+            >
+              {body === "orion" ? "🚀 Orion" : body === "earth" ? "🌍 Earth" : "🌙 Moon"}
+            </button>
+          ))}
+        </div>
+
+        {/* Timeline */}
       {telemetry && (
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 hidden sm:flex items-center gap-2 pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-none">
           <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY 1</span>
           <div className="relative w-40 h-[2px] bg-[rgba(255,255,255,0.1)] rounded">
             <div
@@ -152,6 +186,7 @@ export default function ArtemisHUD() {
           <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY 10</span>
         </div>
       )}
+      </div>
     </div>
   );
 }

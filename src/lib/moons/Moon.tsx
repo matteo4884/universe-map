@@ -1,6 +1,8 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useContext } from "react";
 import { useLoader, useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import { CelestialBody } from "../../data";
+import { ArtemisModeContext } from "../../context/artemisMode";
 import * as THREE from "three";
 
 interface MoonProps {
@@ -26,6 +28,8 @@ function poleDirection(poleRADeg: number, poleDecDeg: number): THREE.Vector3 {
 }
 
 export default function Moon({ position, size, moonObj }: MoonProps) {
+  const { active: artemisActive } = useContext(ArtemisModeContext);
+  const isEarthMoon = moonObj?.name === "Moon";
   const moonMap = useLoader(THREE.TextureLoader, "/2k_moon.jpg");
   const groupRef = useRef<THREE.Group>(null);
 
@@ -37,20 +41,30 @@ export default function Moon({ position, size, moonObj }: MoonProps) {
   }, [moonObj?.info.poleRA, moonObj?.info.poleDec]);
 
   useFrame(() => {
-    if (groupRef.current?.parent) {
-      // lookAt uses world coordinates — get Earth's world position from parent group
-      groupRef.current.parent.getWorldPosition(_earthWorldPos);
+    if (groupRef.current?.parent?.parent) {
+      // lookAt uses world coordinates — get Earth's world position from grandparent (planet group)
+      groupRef.current.parent.parent.getWorldPosition(_earthWorldPos);
       groupRef.current.up.copy(poleDir);
       groupRef.current.lookAt(_earthWorldPos);
     }
   });
 
   return (
-    <group position={position} ref={groupRef}>
-      <mesh rotation={[0, -Math.PI / 2, 0]}>
-        <sphereGeometry args={[size, 64, 64]} />
-        <meshStandardMaterial map={moonMap} />
-      </mesh>
+    <group position={position}>
+      <group ref={groupRef}>
+        <mesh rotation={[0, -Math.PI / 2, 0]}>
+          <sphereGeometry args={[size, 64, 64]} />
+          <meshStandardMaterial map={moonMap} />
+        </mesh>
+      </group>
+      {/* Label outside lookAt group so Z-up stays world-space */}
+      {artemisActive && isEarthMoon && (
+        <Html center className="pointer-events-none noselect" position={[0, 0, size * 2.5]}>
+          <div className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.6)] uppercase font-mono whitespace-nowrap">
+            Moon
+          </div>
+        </Html>
+      )}
     </group>
   );
 }

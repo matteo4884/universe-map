@@ -12,6 +12,8 @@ export interface Telemetry {
   phase: string;
 }
 
+export type ArtemisCameraTarget = "orion" | "earth" | "moon" | null;
+
 export interface ArtemisModeContextType {
   mission: MissionConfig | null;
   active: boolean;
@@ -19,10 +21,12 @@ export interface ArtemisModeContextType {
   deactivate: () => void;
   position: ArtemisPoint | null;
   telemetry: Telemetry | null;
-  trajectory: EphemerisPoint[];
-  signalLost: boolean;
+  fetchedAt: string | null;
+  dataOnline: boolean;
   earthOverride: EphemerisPoint | null;
   moonOverride: EphemerisPoint | null;
+  cameraTarget: ArtemisCameraTarget;
+  setCameraTarget: (target: ArtemisCameraTarget) => void;
 }
 
 export const ArtemisModeContext = createContext<ArtemisModeContextType>({
@@ -32,22 +36,40 @@ export const ArtemisModeContext = createContext<ArtemisModeContextType>({
   deactivate: () => {},
   position: null,
   telemetry: null,
-  trajectory: [],
-  signalLost: false,
+  fetchedAt: null,
+  dataOnline: false,
   earthOverride: null,
   moonOverride: null,
+  cameraTarget: null,
+  setCameraTarget: () => {},
 });
 
 const POLL_INTERVAL = 5 * 60 * 1000;
+const STALE_THRESHOLD = 10 * 60 * 1000;
 const EARTH_RADIUS_KM = 6371;
+
+/** Interpolate a body between now and ahead based on wall clock */
+function interpolateBody(data: ArtemisLiveData, key: "earth" | "moon"): EphemerisPoint {
+  const body = data[key];
+  if (!body.ahead) return body.now;
+  const fetchedAt = new Date(data.fetchedAt).getTime();
+  const aheadTime = fetchedAt + 10 * 60 * 1000;
+  const t = Math.max(0, Math.min(1, (Date.now() - fetchedAt) / (aheadTime - fetchedAt)));
+  return {
+    x: body.now.x + (body.ahead.x - body.now.x) * t,
+    y: body.now.y + (body.ahead.y - body.now.y) * t,
+    z: body.now.z + (body.ahead.z - body.now.z) * t,
+  };
+}
 
 export function ArtemisModeProvider({ children }: { children: React.ReactNode }) {
   const mission = getActiveMission();
   const [active, setActive] = useState(false);
-  const [signalLost, setSignalLost] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [dataOnline, setDataOnline] = useState(false);
+  const [cameraTarget, setCameraTarget] = useState<ArtemisCameraTarget>(null);
   const liveDataRef = useRef<ArtemisLiveData | null>(null);
   const [position, setPosition] = useState<ArtemisPoint | null>(null);
-  const [trajectory, setTrajectory] = useState<EphemerisPoint[]>([]);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [earthOverride, setEarthOverride] = useState<EphemerisPoint | null>(null);
   const [moonOverride, setMoonOverride] = useState<EphemerisPoint | null>(null);
@@ -76,7 +98,6 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     setActive(false);
     setPosition(null);
     setTelemetry(null);
-    setTrajectory([]);
     setEarthOverride(null);
     setMoonOverride(null);
     liveDataRef.current = null;
@@ -93,11 +114,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
       const data = await fetchArtemisLive();
       if (data) {
         liveDataRef.current = data;
-        setSignalLost(false);
-        setEarthOverride(data.earth.now);
-        setMoonOverride(data.moon.now);
-      } else {
-        setSignalLost(true);
+        setFetchedAt(data.fetchedAt);
       }
     }
 
@@ -108,33 +125,45 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     };
   }, [active, mission]);
 
-  // Interpolation loop (every frame)
+  // Update online status every second
+  useEffect(() => {
+    if (!active) return;
+    function checkOnline() {
+      if (!fetchedAt) {
+        setDataOnline(false);
+        return;
+      }
+      const age = Date.now() - new Date(fetchedAt).getTime();
+      setDataOnline(age < STALE_THRESHOLD);
+    }
+    checkOnline();
+    const id = window.setInterval(checkOnline, 1000);
+    return () => clearInterval(id);
+  }, [active, fetchedAt]);
+
+  // Interpolation loop — ALL 3 bodies interpolated every frame
   useEffect(() => {
     if (!active) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       return;
     }
 
-    let lastTrajectoryPush = 0;
-
     function tick() {
       if (liveDataRef.current && mission) {
         const pos = interpolateSpacecraft(liveDataRef.current);
         setPosition(pos);
 
-        const now = Date.now();
-        if (now - lastTrajectoryPush > 30000) {
-          setTrajectory((prev) => [...prev, { x: pos.x, y: pos.y, z: pos.z }]);
-          lastTrajectoryPush = now;
-        }
+        // Interpolate Earth and Moon too — keeps everything synchronized
+        const earthPos = interpolateBody(liveDataRef.current, "earth");
+        const moonPos = interpolateBody(liveDataRef.current, "moon");
+        setEarthOverride(earthPos);
+        setMoonOverride(moonPos);
 
-        const earth = liveDataRef.current.earth.now;
-        const moon = liveDataRef.current.moon.now;
-
-        const dx = pos.x - earth.x, dy = pos.y - earth.y, dz = pos.z - earth.z;
+        // Telemetry from interpolated positions
+        const dx = pos.x - earthPos.x, dy = pos.y - earthPos.y, dz = pos.z - earthPos.z;
         const distEarth = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        const mx = pos.x - moon.x, my = pos.y - moon.y, mz = pos.z - moon.z;
+        const mx = pos.x - moonPos.x, my = pos.y - moonPos.y, mz = pos.z - moonPos.z;
         const distMoon = Math.sqrt(mx * mx + my * my + mz * mz);
 
         const velocity = Math.sqrt((pos.vx ?? 0) ** 2 + (pos.vy ?? 0) ** 2 + (pos.vz ?? 0) ** 2);
@@ -161,7 +190,8 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     <ArtemisModeContext.Provider
       value={{
         mission, active, activate, deactivate, position, telemetry,
-        trajectory, signalLost, earthOverride, moonOverride,
+        fetchedAt, dataOnline, earthOverride, moonOverride,
+        cameraTarget, setCameraTarget,
       }}
     >
       {children}

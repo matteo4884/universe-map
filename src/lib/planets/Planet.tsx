@@ -1,6 +1,7 @@
 import { useState, useContext, useRef, useMemo } from "react";
 import { ScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
+import { ArtemisModeContext } from "../../context/artemisMode";
 import { useLoader, useThree, useFrame } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
 import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinAngle, getEarthSpinAngle } from "../../helper/units";
@@ -14,7 +15,6 @@ interface PlanetProps {
   size: number;
   planetObj: CelestialBody;
   starObj: CelestialBody;
-  showOrbits?: boolean;
 }
 
 export default function Planet({
@@ -28,7 +28,10 @@ export default function Planet({
   if (!scaleCtx) throw new Error("Must be within ScaleProvider");
   const { blend } = scaleCtx;
   const { positions } = useContext(EphemerisContext);
+  const { active: artemisActive } = useContext(ArtemisModeContext);
   const isEarth = map === "earth";
+  const isSaturn = map === "saturn";
+  const isArtemisRelevant = isEarth || map === "moon";
 
   const textureMap: Record<string, string> = {
     mercury: "2k_mercury.jpg",
@@ -51,6 +54,10 @@ export default function Planet({
     THREE.TextureLoader,
     isEarth ? "/2k_earth_clouds.jpg" : `/${texture}`
   );
+  const ringTexture = useLoader(
+    THREE.TextureLoader,
+    isSaturn ? "/2k_saturn_ring_alpha.png" : `/${texture}`
+  );
 
   const poleQuat = useMemo(() => {
     const { poleRA, poleDec } = planetObj.info;
@@ -59,6 +66,22 @@ export default function Planet({
     }
     return new THREE.Quaternion();
   }, [planetObj.info.poleRA, planetObj.info.poleDec]);
+
+  const ringGeo = useMemo(() => {
+    if (!isSaturn) return null;
+    const innerR = size * 1.28;
+    const outerR = size * 2.41;
+    const geo = new THREE.RingGeometry(innerR, outerR, 64);
+    const pos = geo.attributes.position;
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const r = Math.sqrt(x * x + y * y);
+      uv.setXY(i, (r - innerR) / (outerR - innerR), 0.5);
+    }
+    return geo;
+  }, [isSaturn, size]);
 
   const spinRef = useRef<THREE.Group>(null);
 
@@ -127,6 +150,16 @@ export default function Planet({
   return (
     <group position={position}>
       <group quaternion={poleQuat}>
+        {ringGeo && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={ringGeo}>
+            <meshStandardMaterial
+              map={ringTexture}
+              transparent
+              side={THREE.DoubleSide}
+              depthWrite={false}
+            />
+          </mesh>
+        )}
         <group ref={spinRef}>
           {isEarth ? (
             <group>
@@ -158,22 +191,13 @@ export default function Planet({
         </group>
       </group>
 
-      {visible && (
-        <Html
-          className="relative noselect pointer-events-none"
-          position={[0, size, 0]}
-          center
-        >
-          <div
-            className="px-2 py-1 rounded-md font-bold mb-16 bg-[#ffffff1e] hover:bg-[#919191] uppercase pointer-events-auto"
-            onClick={(e) => {
-              e.preventDefault();
-            }}
-          >
+      {(visible && !artemisActive) || (artemisActive && isEarth) ? (
+        <Html center className="pointer-events-none noselect" position={[0, 0, size * 2.5]}>
+          <div className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.6)] uppercase font-mono whitespace-nowrap">
             {planetObj.name}
           </div>
         </Html>
-      )}
+      ) : null}
 
       {/* Moons outside rotation group — orbit is not affected by axial tilt */}
       {moons}

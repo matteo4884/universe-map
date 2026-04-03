@@ -34,7 +34,7 @@ export const ARTEMIS_2: MissionConfig = {
     { name: "Christina Koch", role: "MS1" },
     { name: "Jeremy Hansen", role: "MS2", flag: "🇨🇦" },
   ],
-  youtubeVideoId: "21X5lGlDOfg",
+  youtubeVideoId: "6RwfNBtepa4",
   phases: [
     { name: "LAUNCH & ASCENT", startMET: 0 },
     { name: "TRANS-LUNAR INJECTION", startMET: 12600 },

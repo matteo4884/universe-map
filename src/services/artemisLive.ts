@@ -12,18 +12,15 @@ export interface ArtemisPoint {
 export interface ArtemisLiveData {
   fetchedAt: string;
   spacecraft: { now: ArtemisPoint; ahead?: ArtemisPoint };
-  earth: { now: ArtemisPoint };
-  moon: { now: ArtemisPoint };
+  earth: { now: ArtemisPoint; ahead?: ArtemisPoint };
+  moon: { now: ArtemisPoint; ahead?: ArtemisPoint };
 }
 
 export async function fetchArtemisLive(): Promise<ArtemisLiveData | null> {
   try {
     const response = await fetch(`/data/artemis-live.json?t=${Date.now()}`);
     if (!response.ok) return null;
-    const data = await response.json();
-    const fetchedAt = new Date(data.fetchedAt).getTime();
-    if (Date.now() - fetchedAt > 10 * 60 * 1000) return null;
-    return data;
+    return await response.json();
   } catch {
     return null;
   }

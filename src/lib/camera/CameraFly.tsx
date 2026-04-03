@@ -97,6 +97,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
   const { positions } = useContext(EphemerisContext);
   const artemis = useContext(ArtemisModeContext);
   const prevArtemisActive = useRef(false);
+  const pendingArtemisFly = useRef(false);
 
   const { camera } = useThree();
 
@@ -121,18 +122,100 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     const { blend } = scaleCtx;
 
     // Fly to Orion when Artemis mode activates
-    if (artemis.active && !prevArtemisActive.current && artemis.position) {
-      const pos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
-      const target = new THREE.Vector3(pos[0], pos[1], pos[2]);
-      const dist = Math.max(5, 0.001 * target.length());
-      const dirToSun = target.clone().negate().normalize();
-      const cameraLanding = target.clone().addScaledVector(dirToSun, dist);
+    if (artemis.active && !prevArtemisActive.current) {
+      pendingArtemisFly.current = true;
+    }
+    if (pendingArtemisFly.current && artemis.active && artemis.position && positions && !isAnimating.current) {
+      pendingArtemisFly.current = false;
+      const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
+      const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
+      const moonEph = positions["301"];
+      const moonVec = moonEph
+        ? new THREE.Vector3(...blendPosition(moonEph.x, moonEph.y, moonEph.z, 1))
+        : orionVec.clone().add(new THREE.Vector3(10, 0, 0));
+
+      const orionToMoon = moonVec.clone().sub(orionVec).normalize();
+      const upDir = new THREE.Vector3(0, 0, 1);
+      const sideDir = new THREE.Vector3().crossVectors(orionToMoon, upDir).normalize();
+      const closeDist = 0.15;
 
       startPosition.current.copy(camera.position);
       startTarget.current.copy(controls.target);
       startUp.current.copy(camera.up);
-      endPosition.current.copy(cameraLanding);
-      endTarget.current.copy(target);
+      endPosition.current.copy(
+        orionVec.clone()
+          .addScaledVector(orionToMoon, -closeDist)
+          .addScaledVector(upDir, closeDist * 0.3)
+          .addScaledVector(sideDir, closeDist * 0.15)
+      );
+      endTarget.current.copy(orionVec);
+      endUp.current.set(0, 0, 1);
+
+      animationDuration.current = 2.5;
+      animationProgress.current = 0;
+      isAnimating.current = true;
+      currentBodyRadius.current = 0;
+      controls.enabled = false;
+    }
+
+    prevArtemisActive.current = artemis.active;
+
+    // Artemis camera target navigation (Earth, Moon, Orion buttons)
+    if (artemis.cameraTarget && artemis.active && artemis.position && positions && !isAnimating.current) {
+      const target = artemis.cameraTarget;
+      artemis.setCameraTarget(null);
+
+      const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
+      const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
+      const earthEph = positions["399"];
+      const earthVec = earthEph
+        ? new THREE.Vector3(...blendPosition(earthEph.x, earthEph.y, earthEph.z, 1))
+        : new THREE.Vector3();
+      const moonEph = positions["301"];
+      const moonVec = moonEph
+        ? new THREE.Vector3(...blendPosition(moonEph.x, moonEph.y, moonEph.z, 1))
+        : new THREE.Vector3();
+
+      let camPos: THREE.Vector3;
+      let camTarget: THREE.Vector3;
+
+      if (target === "orion") {
+        const orionToMoon = moonVec.clone().sub(orionVec).normalize();
+        const upDir = new THREE.Vector3(0, 0, 1);
+        const sideDir = new THREE.Vector3().crossVectors(orionToMoon, upDir).normalize();
+        const closeDist = 0.15;
+        camTarget = orionVec;
+        camPos = orionVec.clone()
+          .addScaledVector(orionToMoon, -closeDist)
+          .addScaledVector(upDir, closeDist * 0.3)
+          .addScaledVector(sideDir, closeDist * 0.15);
+      } else if (target === "earth") {
+        const earthRadius = blendRadius(6371, 1);
+        const toOrion = orionVec.clone().sub(earthVec).normalize();
+        const upDir = new THREE.Vector3(0, 0, 1);
+        const sideDir = new THREE.Vector3().crossVectors(toOrion, upDir).normalize();
+        camTarget = earthVec;
+        camPos = earthVec.clone()
+          .addScaledVector(toOrion, -earthRadius * 4)
+          .addScaledVector(upDir, earthRadius * 1.5)
+          .addScaledVector(sideDir, earthRadius);
+      } else {
+        const moonRadius = blendRadius(1737, 1);
+        const toOrion = orionVec.clone().sub(moonVec).normalize();
+        const upDir = new THREE.Vector3(0, 0, 1);
+        const sideDir = new THREE.Vector3().crossVectors(toOrion, upDir).normalize();
+        camTarget = moonVec;
+        camPos = moonVec.clone()
+          .addScaledVector(toOrion, -moonRadius * 4)
+          .addScaledVector(upDir, moonRadius * 1.5)
+          .addScaledVector(sideDir, moonRadius);
+      }
+
+      startPosition.current.copy(camera.position);
+      startTarget.current.copy(controls.target);
+      startUp.current.copy(camera.up);
+      endPosition.current.copy(camPos);
+      endTarget.current.copy(camTarget);
       endUp.current.set(0, 0, 1);
 
       animationDuration.current = 2.0;
@@ -141,7 +224,6 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
       currentBodyRadius.current = 0;
       controls.enabled = false;
     }
-    prevArtemisActive.current = artemis.active;
 
     // Handle view snap — fixed positions that scale with blend
     if (viewSnap && !isAnimating.current) {
