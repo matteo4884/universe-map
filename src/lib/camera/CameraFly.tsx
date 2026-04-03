@@ -1,4 +1,4 @@
-import { useContext, useRef } from "react";
+import { useContext, useRef, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { TrackballControls as TrackballControlsImpl } from "three-stdlib";
@@ -98,8 +98,22 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
   const artemis = useContext(ArtemisModeContext);
   const prevArtemisActive = useRef(false);
   const pendingArtemisFly = useRef(false);
+  const followingBody = useRef<"orion" | "earth" | "moon" | null>(null);
+  const prevOrionEnhanced = useRef(artemis.orionEnhanced);
 
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
+
+  // Detect right-click to disengage camera tracking
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onDown = (e: MouseEvent) => {
+      if (e.button === 2 && followingBody.current) {
+        followingBody.current = null;
+      }
+    };
+    canvas.addEventListener("mousedown", onDown);
+    return () => canvas.removeEventListener("mousedown", onDown);
+  }, [gl]);
 
   const isAnimating = useRef(false);
   const animationProgress = useRef(0);
@@ -121,12 +135,20 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     const { flyTo, setFlyTo, viewSnap, setViewSnap } = cameraNav;
     const { blend } = scaleCtx;
 
+    // Re-fly to Orion when enhanced mode toggles
+    if (artemis.active && artemis.orionEnhanced !== prevOrionEnhanced.current) {
+      prevOrionEnhanced.current = artemis.orionEnhanced;
+      artemis.setCameraTarget("orion");
+    }
+
     // Fly to Orion when Artemis mode activates
     if (artemis.active && !prevArtemisActive.current) {
       pendingArtemisFly.current = true;
     }
     if (pendingArtemisFly.current && artemis.active && artemis.position && positions && !isAnimating.current) {
       pendingArtemisFly.current = false;
+      followingBody.current = "orion";
+      controls.maxDistance = 150; // Limit zoom to Earth-Moon view
       const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
       const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
       const moonEph = positions["301"];
@@ -137,7 +159,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
       const orionToMoon = moonVec.clone().sub(orionVec).normalize();
       const upDir = new THREE.Vector3(0, 0, 1);
       const sideDir = new THREE.Vector3().crossVectors(orionToMoon, upDir).normalize();
-      const closeDist = 0.15;
+      const closeDist = artemis.orionEnhanced ? 0.15 : 0.000008;
 
       startPosition.current.copy(camera.position);
       startTarget.current.copy(controls.target);
@@ -158,12 +180,17 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
       controls.enabled = false;
     }
 
+    // Restore maxDistance when exiting Artemis
+    if (!artemis.active && prevArtemisActive.current) {
+      controls.maxDistance = 300000000000;
+    }
     prevArtemisActive.current = artemis.active;
 
     // Artemis camera target navigation (Earth, Moon, Orion buttons)
     if (artemis.cameraTarget && artemis.active && artemis.position && positions && !isAnimating.current) {
       const target = artemis.cameraTarget;
       artemis.setCameraTarget(null);
+      followingBody.current = target;
 
       const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
       const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
@@ -183,7 +210,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
         const orionToMoon = moonVec.clone().sub(orionVec).normalize();
         const upDir = new THREE.Vector3(0, 0, 1);
         const sideDir = new THREE.Vector3().crossVectors(orionToMoon, upDir).normalize();
-        const closeDist = 0.15;
+        const closeDist = artemis.orionEnhanced ? 0.15 : 0.000008;
         camTarget = orionVec;
         camPos = orionVec.clone()
           .addScaledVector(orionToMoon, -closeDist)
@@ -224,6 +251,29 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
       currentBodyRadius.current = 0;
       controls.enabled = false;
     }
+
+    // Camera tracking — follow selected body in Artemis mode
+    if (followingBody.current && artemis.active && artemis.position && positions && !isAnimating.current) {
+      let bodyPos: [number, number, number];
+      if (followingBody.current === "orion") {
+        bodyPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
+      } else if (followingBody.current === "earth") {
+        const e = positions["399"];
+        bodyPos = e ? blendPosition(e.x, e.y, e.z, 1) : [0, 0, 0];
+      } else {
+        const m = positions["301"];
+        bodyPos = m ? blendPosition(m.x, m.y, m.z, 1) : [0, 0, 0];
+      }
+      const newTarget = new THREE.Vector3(bodyPos[0], bodyPos[1], bodyPos[2]);
+      const delta = newTarget.clone().sub(controls.target);
+      if (delta.lengthSq() > 1e-20) {
+        camera.position.add(delta);
+        controls.target.copy(newTarget);
+      }
+    }
+
+    // Clear tracking on Artemis exit
+    if (!artemis.active) followingBody.current = null;
 
     // Handle view snap — fixed positions that scale with blend
     if (viewSnap && !isAnimating.current) {

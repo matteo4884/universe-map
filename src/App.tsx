@@ -122,6 +122,7 @@ function AppInner() {
                 fov: 50,
                 position: INITIAL_CAMERA,
                 up: [0, 0, 1],
+                near: 0.0000001,
                 far: 500000000000,
               }}
               scene={{ background: BACKGROUND_COLOR }}

@@ -27,6 +27,8 @@ export interface ArtemisModeContextType {
   moonOverride: EphemerisPoint | null;
   cameraTarget: ArtemisCameraTarget;
   setCameraTarget: (target: ArtemisCameraTarget) => void;
+  orionEnhanced: boolean;
+  setOrionEnhanced: (v: boolean) => void;
 }
 
 export const ArtemisModeContext = createContext<ArtemisModeContextType>({
@@ -42,6 +44,8 @@ export const ArtemisModeContext = createContext<ArtemisModeContextType>({
   moonOverride: null,
   cameraTarget: null,
   setCameraTarget: () => {},
+  orionEnhanced: false,
+  setOrionEnhanced: () => {},
 });
 
 const POLL_INTERVAL = 5 * 60 * 1000;
@@ -68,6 +72,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [dataOnline, setDataOnline] = useState(false);
   const [cameraTarget, setCameraTarget] = useState<ArtemisCameraTarget>(null);
+  const [orionEnhanced, setOrionEnhanced] = useState(true);
   const liveDataRef = useRef<ArtemisLiveData | null>(null);
   const [position, setPosition] = useState<ArtemisPoint | null>(null);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
@@ -192,6 +197,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
         mission, active, activate, deactivate, position, telemetry,
         fetchedAt, dataOnline, earthOverride, moonOverride,
         cameraTarget, setCameraTarget,
+        orionEnhanced, setOrionEnhanced,
       }}
     >
       {children}

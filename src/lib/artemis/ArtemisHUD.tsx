@@ -19,9 +19,10 @@ function formatKm(km: number): string {
 }
 
 export default function ArtemisHUD() {
-  const { mission, active, deactivate, telemetry, fetchedAt, dataOnline, setCameraTarget } = useContext(ArtemisModeContext);
+  const { mission, active, deactivate, telemetry, fetchedAt, dataOnline, setCameraTarget, orionEnhanced, setOrionEnhanced } = useContext(ArtemisModeContext);
   const [videoOpen, setVideoOpen] = useState(true);
   const [mobileVideoOpen, setMobileVideoOpen] = useState(false);
+  const [showScaleConfirm, setShowScaleConfirm] = useState(false);
 
   if (!active || !mission) return null;
 
@@ -165,6 +166,24 @@ export default function ArtemisHUD() {
           ))}
         </div>
 
+        {/* Scale mode toggle */}
+        <button
+          onClick={() => {
+            if (orionEnhanced) {
+              setShowScaleConfirm(true);
+            } else {
+              setOrionEnhanced(true);
+            }
+          }}
+          className={`text-[11px] tracking-[1px] py-1.5 px-4 rounded border transition-colors cursor-pointer ${
+            orionEnhanced
+              ? "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.5)] hover:text-white"
+              : "border-[#00ff88] bg-[rgba(0,255,136,0.1)] text-[#00ff88]"
+          }`}
+        >
+          {orionEnhanced ? "Switch to Real Scale Orion →" : "✓ Real Scale Orion — Switch to Enhanced"}
+        </button>
+
         {/* Timeline */}
       {telemetry && (
         <div className="flex items-center gap-2 pointer-events-none">
@@ -187,6 +206,41 @@ export default function ArtemisHUD() {
         </div>
       )}
       </div>
+
+      {/* Real Scale confirmation modal */}
+      {showScaleConfirm && (
+        <div className="fixed inset-0 z-[999999999] flex items-center justify-center pointer-events-auto">
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.7)]" onClick={() => setShowScaleConfirm(false)} />
+          <div className="relative bg-[#0a0a0a] border border-[rgba(255,255,255,0.15)] rounded-lg p-6 max-w-sm mx-4 font-mono">
+            <div className="text-[11px] tracking-[3px] text-[#ff9500] uppercase mb-3">Real Scale Mode</div>
+            <div className="text-[13px] text-white leading-relaxed mb-4">
+              You are about to switch to real scale.
+            </div>
+            <div className="text-[11px] text-[rgba(255,255,255,0.5)] leading-relaxed mb-4 space-y-2">
+              <p>The Orion spacecraft is <span className="text-white">~5 meters</span> wide and <span className="text-white">~10 meters</span> tall.</p>
+              <p>The current enhanced model is displayed at <span className="text-white">~130 km</span> for visibility.</p>
+              <p className="text-[#ff6b35]">Due to the astronomical difference in scale, the real-size model will have visual artifacts (z-fighting) caused by hardware precision limits of WebGL.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setOrionEnhanced(false);
+                  setShowScaleConfirm(false);
+                }}
+                className="flex-1 text-[10px] tracking-[2px] uppercase py-2 rounded border border-[#00ff88] bg-[rgba(0,255,136,0.1)] text-[#00ff88] cursor-pointer hover:bg-[rgba(0,255,136,0.2)] transition-colors"
+              >
+                Switch to Real Scale
+              </button>
+              <button
+                onClick={() => setShowScaleConfirm(false)}
+                className="flex-1 text-[10px] tracking-[2px] uppercase py-2 rounded border border-[rgba(255,255,255,0.2)] text-[rgba(255,255,255,0.5)] cursor-pointer hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
