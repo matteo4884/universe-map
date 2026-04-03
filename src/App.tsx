@@ -43,25 +43,68 @@ function ArtemisAwareUI({
   setShowOrbits: (v: boolean) => void;
   visible: boolean;
 }) {
-  const { active } = useContext(ArtemisModeContext);
+  const { active, position } = useContext(ArtemisModeContext);
   const scaleCtx = useContext(ScaleContext);
   const cameraNav = useContext(CameraNavigationContext);
   const prevActive = useRef(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
-    if (active) {
+    if (active && !prevActive.current) {
+      // Entering Artemis — show overlay, instant blend
+      setTransitioning(true);
+      setFadeOut(false);
+      scaleCtx?.setBlendInstant(1);
       scaleCtx?.setRealisticMode(true);
       setShowOrbits(false);
-    } else if (prevActive.current) {
-      scaleCtx?.setRealisticMode(false);
-      setShowOrbits(true);
-      cameraNav?.setViewSnap("home");
+    } else if (!active && prevActive.current) {
+      // Exiting Artemis — show overlay, instant blend back
+      setTransitioning(true);
+      setFadeOut(false);
+      setTimeout(() => {
+        scaleCtx?.setBlendInstant(0);
+        scaleCtx?.setRealisticMode(false);
+        setShowOrbits(true);
+        cameraNav?.setViewSnap("home");
+        setFadeOut(true);
+      }, 300);
+      setTimeout(() => setTransitioning(false), 800);
     }
     prevActive.current = active;
   }, [active]);
 
+  // Fade out overlay once Artemis data arrives + camera fly-to completes
+  useEffect(() => {
+    if (transitioning && active && position) {
+      // Data arrived — wait for camera fly-to to finish (~3s), then fade out
+      setTimeout(() => setFadeOut(true), 3000);
+      setTimeout(() => setTransitioning(false), 3500);
+    }
+  }, [transitioning, active, position]);
+
   return (
     <>
+      {/* Transition overlay */}
+      {transitioning && (
+        <div
+          className={`fixed inset-0 z-[99999999999] bg-black flex items-center justify-center transition-opacity duration-500 ${
+            fadeOut ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
+          {active && (
+            <div className="text-center font-mono">
+              <div className="text-[9px] tracking-[4px] text-[#ff9500] uppercase mb-2">
+                Entering Mission
+              </div>
+              <div className="text-xl font-bold tracking-[4px] text-white loading-pulse">
+                ARTEMIS II
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {!active && (
         <div className="fixed top-4 left-0 w-screen text-center z-[999999999] pointer-events-none">
           <div className="text-[11px] tracking-[6px] uppercase text-white font-light opacity-60">Universe Map</div>

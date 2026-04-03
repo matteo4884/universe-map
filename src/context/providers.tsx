@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { ScaleContext } from "./contexts";
 
 type Props = {
@@ -30,8 +30,13 @@ export function ScaleProvider({ children }: Props) {
     return () => cancelAnimationFrame(frame);
   }, [realisticMode]);
 
+  const setBlendInstant = useCallback((value: number) => {
+    setBlend(value);
+    targetRef.current = value;
+  }, []);
+
   return (
-    <ScaleContext.Provider value={{ realisticMode, setRealisticMode, blend }}>
+    <ScaleContext.Provider value={{ realisticMode, setRealisticMode, blend, setBlendInstant }}>
       {children}
     </ScaleContext.Provider>
   );
