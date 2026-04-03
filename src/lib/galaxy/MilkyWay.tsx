@@ -12,14 +12,15 @@ const vertexShader = `
   varying vec3 vColor;
   varying float vAlpha;
   uniform float uTime;
+  uniform float uDpr;
 
   void main() {
     vColor = aColor * 0.7;
     float twinkle = 0.8 + 0.2 * sin(uTime * 0.5 + aPhase);
     vAlpha = twinkle;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * (40.0 / -mvPosition.z);
-    gl_PointSize = clamp(gl_PointSize, 0.3, 2.0);
+    gl_PointSize = aSize * (40.0 / -mvPosition.z) * uDpr;
+    gl_PointSize = clamp(gl_PointSize, 0.3 * uDpr, 2.0 * uDpr);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -43,7 +44,7 @@ export default function MilkyWay() {
   const galaxy = useMemo(() => generateGalaxy(), []);
 
   const uniforms = useMemo(
-    () => ({ uTime: { value: 0 } }),
+    () => ({ uTime: { value: 0 }, uDpr: { value: window.devicePixelRatio || 1 } }),
     []
   );
 
