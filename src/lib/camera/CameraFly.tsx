@@ -98,8 +98,8 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
   const artemis = useContext(ArtemisModeContext);
   const prevArtemisActive = useRef(false);
   const pendingArtemisFly = useRef(false);
-  const followingBody = useRef<"orion" | "earth" | "moon" | null>(null);
   const prevOrionEnhanced = useRef(artemis.orionEnhanced);
+  const cameraLockedRef = useRef(artemis.cameraLocked);
 
   const { camera, gl } = useThree();
 
@@ -107,8 +107,8 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
   useEffect(() => {
     const canvas = gl.domElement;
     const onDown = (e: MouseEvent) => {
-      if (e.button === 2 && followingBody.current) {
-        followingBody.current = null;
+      if (e.button === 2 && cameraLockedRef.current) {
+        artemis.setCameraLocked(null);
       }
     };
     canvas.addEventListener("mousedown", onDown);
@@ -128,6 +128,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
   const currentBodyPos = useRef(new THREE.Vector3());
 
   useFrame((_, delta) => {
+    cameraLockedRef.current = artemis.cameraLocked;
     if (!cameraNav || !scaleCtx || !positions) return;
     const controls = controlsRef.current;
     if (!controls) return;
@@ -147,7 +148,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     }
     if (pendingArtemisFly.current && artemis.active && artemis.position && positions && !isAnimating.current) {
       pendingArtemisFly.current = false;
-      followingBody.current = "orion";
+      artemis.setCameraLocked("orion");
       controls.maxDistance = 150; // Limit zoom to Earth-Moon view
       const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
       const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
@@ -190,7 +191,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     if (artemis.cameraTarget && artemis.active && artemis.position && positions && !isAnimating.current) {
       const target = artemis.cameraTarget;
       artemis.setCameraTarget(null);
-      followingBody.current = target;
+      artemis.setCameraLocked(target);
 
       const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
       const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
@@ -253,11 +254,11 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     }
 
     // Camera tracking — follow selected body in Artemis mode
-    if (followingBody.current && artemis.active && artemis.position && positions && !isAnimating.current) {
+    if (artemis.cameraLocked && artemis.active && artemis.position && positions && !isAnimating.current) {
       let bodyPos: [number, number, number];
-      if (followingBody.current === "orion") {
+      if (artemis.cameraLocked === "orion") {
         bodyPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
-      } else if (followingBody.current === "earth") {
+      } else if (artemis.cameraLocked === "earth") {
         const e = positions["399"];
         bodyPos = e ? blendPosition(e.x, e.y, e.z, 1) : [0, 0, 0];
       } else {
@@ -265,15 +266,15 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
         bodyPos = m ? blendPosition(m.x, m.y, m.z, 1) : [0, 0, 0];
       }
       const newTarget = new THREE.Vector3(bodyPos[0], bodyPos[1], bodyPos[2]);
-      const delta = newTarget.clone().sub(controls.target);
-      if (delta.lengthSq() > 1e-20) {
-        camera.position.add(delta);
+      const trackingOffset = newTarget.clone().sub(controls.target);
+      if (trackingOffset.lengthSq() > 1e-20) {
+        camera.position.add(trackingOffset);
         controls.target.copy(newTarget);
       }
     }
 
     // Clear tracking on Artemis exit
-    if (!artemis.active) followingBody.current = null;
+    if (!artemis.active && artemis.cameraLocked) artemis.setCameraLocked(null);
 
     // Handle view snap — fixed positions that scale with blend
     if (viewSnap && !isAnimating.current) {

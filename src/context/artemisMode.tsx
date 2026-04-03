@@ -29,6 +29,8 @@ export interface ArtemisModeContextType {
   setCameraTarget: (target: ArtemisCameraTarget) => void;
   orionEnhanced: boolean;
   setOrionEnhanced: (v: boolean) => void;
+  cameraLocked: ArtemisCameraTarget;
+  setCameraLocked: (body: ArtemisCameraTarget) => void;
 }
 
 export const ArtemisModeContext = createContext<ArtemisModeContextType>({
@@ -46,6 +48,8 @@ export const ArtemisModeContext = createContext<ArtemisModeContextType>({
   setCameraTarget: () => {},
   orionEnhanced: false,
   setOrionEnhanced: () => {},
+  cameraLocked: null,
+  setCameraLocked: () => {},
 });
 
 const POLL_INTERVAL = 5 * 60 * 1000;
@@ -73,6 +77,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
   const [dataOnline, setDataOnline] = useState(false);
   const [cameraTarget, setCameraTarget] = useState<ArtemisCameraTarget>(null);
   const [orionEnhanced, setOrionEnhanced] = useState(true);
+  const [cameraLocked, setCameraLocked] = useState<ArtemisCameraTarget>(null);
   const liveDataRef = useRef<ArtemisLiveData | null>(null);
   const [position, setPosition] = useState<ArtemisPoint | null>(null);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
@@ -105,6 +110,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     setTelemetry(null);
     setEarthOverride(null);
     setMoonOverride(null);
+    setCameraLocked(null);
     liveDataRef.current = null;
     const url = new URL(window.location.href);
     url.searchParams.delete(mission.queryParam);
@@ -198,6 +204,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
         fetchedAt, dataOnline, earthOverride, moonOverride,
         cameraTarget, setCameraTarget,
         orionEnhanced, setOrionEnhanced,
+        cameraLocked, setCameraLocked,
       }}
     >
       {children}

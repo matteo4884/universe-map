@@ -62,6 +62,11 @@ function ArtemisAwareUI({
 
   return (
     <>
+      {!active && (
+        <div className="fixed top-4 left-0 w-screen text-center z-[999999999] pointer-events-none">
+          <div className="text-[11px] tracking-[6px] uppercase text-white font-light opacity-60">Universe Map</div>
+        </div>
+      )}
       {!active && <SettingsPanel showOrbits={showOrbits} setShowOrbits={setShowOrbits} />}
       {!active && <CelestialCard root={MILKY_WAY} visible={visible} />}
       {!active && <MobileSheet root={MILKY_WAY} visible={visible} />}
@@ -148,10 +153,6 @@ function AppInner() {
               <CameraFly controlsRef={controlsRef} />
             </Canvas>
           )}
-        </div>
-        <div className="fixed lg:top-4 top-2 pr-2 lg:pr-0 left-0 text-[#fff] w-screen text-right lg:text-center z-[999999999]">
-          <div>Universe Map</div>
-          <div className="text-[10px] opacity-50 mt-1">(Work in progress)</div>
         </div>
         <ArtemisAwareUI showOrbits={showOrbits} setShowOrbits={setShowOrbits} visible={visible} />
       </div>

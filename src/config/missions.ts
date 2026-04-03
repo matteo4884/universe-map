@@ -29,9 +29,9 @@ export const ARTEMIS_2: MissionConfig = {
   startDate: new Date("2026-04-02T01:59:00Z"),
   endDate: new Date("2026-04-11T00:02:00Z"),
   crew: [
-    { name: "Reid Wiseman", role: "CDR" },
-    { name: "Victor Glover", role: "PLT" },
-    { name: "Christina Koch", role: "MS1" },
+    { name: "Reid Wiseman", role: "CDR", flag: "🇺🇸" },
+    { name: "Victor Glover", role: "PLT", flag: "🇺🇸" },
+    { name: "Christina Koch", role: "MS1", flag: "🇺🇸" },
     { name: "Jeremy Hansen", role: "MS2", flag: "🇨🇦" },
   ],
   youtubeVideoId: "6RwfNBtepa4",
