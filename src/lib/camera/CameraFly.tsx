@@ -8,6 +8,7 @@ import {
 } from "../../context/cameraNavigation";
 import { ScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
+import { ArtemisModeContext } from "../../context/artemisMode";
 import {
   blendPosition,
   blendMoonPosition,
@@ -94,6 +95,8 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
   const cameraNav = useContext(CameraNavigationContext);
   const scaleCtx = useContext(ScaleContext);
   const { positions } = useContext(EphemerisContext);
+  const artemis = useContext(ArtemisModeContext);
+  const prevArtemisActive = useRef(false);
 
   const { camera } = useThree();
 
@@ -116,6 +119,29 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
 
     const { flyTo, setFlyTo, viewSnap, setViewSnap } = cameraNav;
     const { blend } = scaleCtx;
+
+    // Fly to Orion when Artemis mode activates
+    if (artemis.active && !prevArtemisActive.current && artemis.position) {
+      const pos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
+      const target = new THREE.Vector3(pos[0], pos[1], pos[2]);
+      const dist = Math.max(5, 0.001 * target.length());
+      const dirToSun = target.clone().negate().normalize();
+      const cameraLanding = target.clone().addScaledVector(dirToSun, dist);
+
+      startPosition.current.copy(camera.position);
+      startTarget.current.copy(controls.target);
+      startUp.current.copy(camera.up);
+      endPosition.current.copy(cameraLanding);
+      endTarget.current.copy(target);
+      endUp.current.set(0, 0, 1);
+
+      animationDuration.current = 2.0;
+      animationProgress.current = 0;
+      isAnimating.current = true;
+      currentBodyRadius.current = 0;
+      controls.enabled = false;
+    }
+    prevArtemisActive.current = artemis.active;
 
     // Handle view snap — fixed positions that scale with blend
     if (viewSnap && !isAnimating.current) {
