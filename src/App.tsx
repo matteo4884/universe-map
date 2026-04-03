@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { TrackballControls } from '@react-three/drei';
-import { useState, useRef } from 'react';
+import { useState, useRef, useContext, useEffect } from 'react';
 import { TrackballControls as TrackballControlsImpl } from 'three-stdlib';
 import CameraFly from './lib/camera/CameraFly';
 import { CELESTIAL_BODIES, SOLAR_SYSTEM, MILKY_WAY } from './data';
@@ -15,6 +15,11 @@ import { EphemerisContext } from './context/ephemeris';
 import LoadingScreen from './lib/LoadingScreen';
 import SettingsPanel from './lib/settings/SettingsPanel';
 import { blendPosition } from './helper/units';
+import { ArtemisModeProvider, ArtemisModeContext } from './context/artemisMode';
+import { ScaleContext } from './context/contexts';
+import ArtemisButton from './lib/artemis/ArtemisButton';
+import ArtemisHUD from './lib/artemis/ArtemisHUD';
+import OrionSpacecraft from './lib/artemis/OrionSpacecraft';
 
 const BACKGROUND_COLOR = new THREE.Color(0, 0, 0);
 
@@ -28,6 +33,36 @@ const INITIAL_CAMERA: [number, number, number] = [
   viewDist * Math.sin(MID_ANGLE),
   viewDist * Math.cos(MID_ANGLE),
 ];
+
+function ArtemisAwareUI({
+  showOrbits,
+  setShowOrbits,
+  visible,
+}: {
+  showOrbits: boolean;
+  setShowOrbits: (v: boolean) => void;
+  visible: boolean;
+}) {
+  const { active } = useContext(ArtemisModeContext);
+  const scaleCtx = useContext(ScaleContext);
+
+  useEffect(() => {
+    if (active) {
+      scaleCtx?.setRealisticMode(true);
+      setShowOrbits(false);
+    }
+  }, [active]);
+
+  return (
+    <>
+      {!active && <SettingsPanel showOrbits={showOrbits} setShowOrbits={setShowOrbits} />}
+      {!active && <CelestialCard root={MILKY_WAY} visible={visible} />}
+      {!active && <MobileSheet root={MILKY_WAY} visible={visible} />}
+      <ArtemisButton />
+      <ArtemisHUD />
+    </>
+  );
+}
 
 function App() {
   const [visible, setVisible] = useState(true);
@@ -48,6 +83,7 @@ function App() {
   ));
 
   return (
+    <ArtemisModeProvider>
     <EphemerisContext.Provider value={ephemeris}>
       <LoadingScreen loading={ephemeris.loading} error={ephemeris.error} />
       <div className="noselect">
@@ -83,6 +119,7 @@ function App() {
                 maxDistance={300000000000}
               />
               <CameraFly controlsRef={controlsRef} />
+              <OrionSpacecraft />
             </Canvas>
           )}
         </div>
@@ -90,9 +127,7 @@ function App() {
           <div>Universe Map</div>
           <div className="text-[10px] opacity-50 mt-1">(Work in progress)</div>
         </div>
-        <SettingsPanel showOrbits={showOrbits} setShowOrbits={setShowOrbits} />
-        <CelestialCard root={MILKY_WAY} visible={visible} />
-        <MobileSheet root={MILKY_WAY} visible={visible} />
+        <ArtemisAwareUI showOrbits={showOrbits} setShowOrbits={setShowOrbits} visible={visible} />
         <div className="fixed z-[999999999] p-1 px-2 rounded-tr-md bg-[#00000065] bottom-0 left-0 text-[#fff] text-[11px] bg-blur-custom">
           Developed with ❤︎ by{' '}
           <a href="https://matteobeu.com" target="_blank" className="underline">
@@ -101,6 +136,7 @@ function App() {
         </div>
       </div>
     </EphemerisContext.Provider>
+    </ArtemisModeProvider>
   );
 }
 
