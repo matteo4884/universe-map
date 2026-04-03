@@ -1,7 +1,7 @@
 import { createContext, useState } from "react";
 import { CelestialBody } from "../data";
 
-export type ViewDirection = "top" | "front" | "home" | null;
+export type ViewDirection = "top" | "front" | "home" | "milkyway" | null;
 
 export type CameraNavigationContextType = {
   flyTo: CelestialBody | null;

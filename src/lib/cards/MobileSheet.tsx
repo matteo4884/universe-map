@@ -38,8 +38,6 @@ export default function MobileSheet({ root, visible }: MobileSheetProps) {
   const body = getBodyAtPath(root, path);
   const breadcrumb = getBreadcrumb(root, path);
 
-  if (!visible) return null;
-
   return (
     <>
       {/* Bottom tab */}
@@ -49,7 +47,7 @@ export default function MobileSheet({ root, visible }: MobileSheetProps) {
           onClick={() => setOpen(true)}
         >
           <div className="bg-[#000000b3] bg-blur-custom text-white text-[10px] uppercase tracking-[2px] px-4 py-2 rounded-t-lg border border-b-0 border-[#ffffff15] hover:bg-[#ffffff25] transition-colors">
-            ☰ Solar System
+            ☰ Milky Way
           </div>
         </div>
       )}

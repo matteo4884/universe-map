@@ -16,6 +16,7 @@ import {
 } from "../../helper/units";
 import { SOLAR_SYSTEM, CelestialBody } from "../../data";
 import { EphemerisData } from "../../services/horizons";
+import { SUN_GALAXY_POSITION } from "../galaxy/generateGalaxy";
 
 interface CameraFlyProps {
   controlsRef: React.RefObject<TrackballControlsImpl | null>;
@@ -136,7 +137,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
         endUp.current.set(0, -1, 0);
       } else if (viewSnap === "front") {
         endPosition.current.set(0, viewDist, 0);
-      } else {
+      } else if (viewSnap === "home") {
         // "home" — midway between top and front
         const angle = Math.PI / 4;
         endPosition.current.set(
@@ -144,9 +145,27 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
           viewDist * Math.sin(angle),
           viewDist * Math.cos(angle)
         );
+      } else {
+        // "milkyway" — galactic overview, centered on galaxy center
+        const GALAXY_SCALE = 250000000;
+        const galaxyCenter = new THREE.Vector3(
+          -SUN_GALAXY_POSITION[0] * GALAXY_SCALE,
+          -SUN_GALAXY_POSITION[1] * GALAXY_SCALE,
+          -SUN_GALAXY_POSITION[2] * GALAXY_SCALE
+        );
+        endTarget.current.copy(galaxyCenter);
+
+        const galaxyDist = 280000000000;
+        const angle = Math.PI / 6; // 30° above galactic plane
+        endPosition.current.set(
+          galaxyCenter.x + galaxyDist * Math.sin(angle) * 0.3,
+          galaxyCenter.y + galaxyDist * Math.sin(angle),
+          galaxyCenter.z + galaxyDist * Math.cos(angle)
+        );
       }
 
-      animationDuration.current = 1.0;
+      const snapDist = camera.position.distanceTo(endPosition.current);
+      animationDuration.current = Math.min(1.0 + snapDist / 100000000000 * 2.0, 3.5);
       animationProgress.current = 0;
       isAnimating.current = true;
       currentBodyRadius.current = 0;
@@ -185,7 +204,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     if (isAnimating.current) {
       animationProgress.current += delta / animationDuration.current;
       const rawT = Math.min(animationProgress.current, 1);
-      const t = 1 - Math.pow(1 - rawT, 3);
+      const t = 0.5 - 0.5 * Math.cos(rawT * Math.PI);
 
       camera.position.lerpVectors(
         startPosition.current,
@@ -204,11 +223,11 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
         camera.position.copy(endPosition.current);
         controls.target.copy(endTarget.current);
         camera.up.copy(endUp.current).normalize();
+        camera.lookAt(controls.target);
 
         isAnimating.current = false;
         controls.enabled = true;
         controls.minDistance = currentBodyRadius.current * 1.5;
-        controls.update();
       }
     }
 

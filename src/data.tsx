@@ -2,7 +2,7 @@ export const SCALE_SIZE: number = 1;
 
 export interface CelestialBody {
   id: number;
-  type: "star" | "planet" | "moon";
+  type: "star" | "planet" | "moon" | "galaxy";
   name: string;
   map: string;
   image: string;
@@ -370,6 +370,33 @@ export const SOLAR_SYSTEM: CelestialBody = {
       children: [],
     },
   ],
+};
+
+export const MILKY_WAY: CelestialBody = {
+  id: 100,
+  type: "galaxy",
+  name: "Milky Way",
+  map: "",
+  image: "",
+  radius: 52850,
+  distanceFromParent: 0,
+  horizonsId: "",
+  info: {
+    mass: "1.5 × 10¹² solar masses",
+    gravity: 0,
+    temperature: 0,
+    dayLength: "225 million years",
+    yearLength: "",
+    orbitalSpeed: 220,
+    axialTilt: 0,
+    eccentricity: 0,
+    magneticField: false,
+    rings: false,
+    atmosphere: [],
+    funFact:
+      "The Milky Way contains 100-400 billion stars and is about 100,000 light-years in diameter. Our Solar System orbits the galactic center at about 220 km/s.",
+  },
+  children: [SOLAR_SYSTEM],
 };
 
 // Backward-compatible export: array wrapping the root for 3D rendering code

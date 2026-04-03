@@ -5,8 +5,8 @@ import { TrackballControls } from '@react-three/drei';
 import { useState, useRef } from 'react';
 import { TrackballControls as TrackballControlsImpl } from 'three-stdlib';
 import CameraFly from './lib/camera/CameraFly';
-import { CELESTIAL_BODIES, SOLAR_SYSTEM } from './data';
-import StarField from './lib/starfield/Starfield';
+import { CELESTIAL_BODIES, SOLAR_SYSTEM, MILKY_WAY } from './data';
+import MilkyWay from './lib/galaxy/MilkyWay';
 import Star from './lib/stars/Star';
 import CelestialCard from './lib/cards/CelestialCard';
 import MobileSheet from './lib/cards/MobileSheet';
@@ -60,13 +60,13 @@ function App() {
                 fov: 50,
                 position: INITIAL_CAMERA,
                 up: [0, 0, 1],
-                far: 5000000000,
+                far: 500000000000,
               }}
               scene={{ background: BACKGROUND_COLOR }}
             >
               {stars}
 
-              <StarField />
+              <MilkyWay />
               <ambientLight intensity={0} />
               <EffectComposer>
                 <Bloom
@@ -80,7 +80,7 @@ function App() {
                 rotateSpeed={2}
                 panSpeed={0.6}
                 zoomSpeed={1.5}
-                maxDistance={3000000000}
+                maxDistance={300000000000}
               />
               <CameraFly controlsRef={controlsRef} />
             </Canvas>
@@ -91,8 +91,8 @@ function App() {
           <div className="text-[10px] opacity-50 mt-1">(Work in progress)</div>
         </div>
         <SettingsPanel showOrbits={showOrbits} setShowOrbits={setShowOrbits} />
-        <CelestialCard root={SOLAR_SYSTEM} visible={visible} />
-        <MobileSheet root={SOLAR_SYSTEM} visible={visible} />
+        <CelestialCard root={MILKY_WAY} visible={visible} />
+        <MobileSheet root={MILKY_WAY} visible={visible} />
         <div className="fixed z-[999999999] p-1 px-2 rounded-tr-md bg-[#00000065] bottom-0 left-0 text-[#fff] text-[11px] bg-blur-custom">
           Developed with ❤︎ by{' '}
           <a href="https://matteobeu.com" target="_blank" className="underline">

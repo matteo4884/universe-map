@@ -17,25 +17,29 @@ export default function CelestialDetail({
   const cameraNav = useContext(CameraNavigationContext);
 
   const typeLabel =
-    body.type === "star"
-      ? "Star"
-      : body.type === "planet"
-        ? body.info.atmosphere.length > 0 &&
-          body.info.gravity > 5 &&
-          body.radius > 10000
-          ? "Gas Giant"
-          : "Rocky Planet"
-        : "Moon";
+    body.type === "galaxy"
+      ? "Galaxy"
+      : body.type === "star"
+        ? "Star"
+        : body.type === "planet"
+          ? body.info.atmosphere.length > 0 &&
+            body.info.gravity > 5 &&
+            body.radius > 10000
+            ? "Gas Giant"
+            : "Rocky Planet"
+          : "Moon";
 
   return (
     <div className="flex flex-col gap-4">
       {/* Hero section */}
       <div className="flex gap-4 items-center">
-        <img
-          src={`/images/${body.image}`}
-          alt={body.name}
-          className="w-28 h-28 object-contain flex-shrink-0"
-        />
+        {body.image && (
+          <img
+            src={`/images/${body.image}`}
+            alt={body.name}
+            className="w-28 h-28 object-contain flex-shrink-0"
+          />
+        )}
         <div>
           <div className="text-2xl font-bold uppercase tracking-wider">
             {body.name}
@@ -44,15 +48,31 @@ export default function CelestialDetail({
             {typeLabel}
           </div>
           <div className="text-xs text-[#aaa] leading-relaxed">
-            <div>
-              Radius: <span className="text-white">{body.radius.toLocaleString()} km</span>
-            </div>
-            <div>
-              Mass: <span className="text-white">{body.info.mass}</span>
-            </div>
-            <div>
-              Temp: <span className="text-white">{body.info.temperature}°C</span>
-            </div>
+            {body.type === "galaxy" ? (
+              <>
+                <div>
+                  Diameter: <span className="text-white">100,000 light-years</span>
+                </div>
+                <div>
+                  Mass: <span className="text-white">{body.info.mass}</span>
+                </div>
+                <div>
+                  Type: <span className="text-white">Barred Spiral (SBbc)</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  Radius: <span className="text-white">{body.radius.toLocaleString()} km</span>
+                </div>
+                <div>
+                  Mass: <span className="text-white">{body.info.mass}</span>
+                </div>
+                <div>
+                  Temp: <span className="text-white">{body.info.temperature}°C</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -61,36 +81,65 @@ export default function CelestialDetail({
       <div className="h-px bg-[#ffffff15]" />
 
       {/* Stats grid */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="text-center">
-          <div className="text-[9px] text-[#666] uppercase">Day</div>
-          <div className="text-sm font-semibold">{body.info.dayLength}</div>
-        </div>
-        <div className="text-center">
-          <div className="text-[9px] text-[#666] uppercase">Year</div>
-          <div className="text-sm font-semibold">{body.info.yearLength}</div>
-        </div>
-        <div className="text-center">
-          <div className="text-[9px] text-[#666] uppercase">
-            {body.type === "star" ? "Planets" : "Moons"}
+      {body.type === "galaxy" ? (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Stars</div>
+            <div className="text-sm font-semibold">100-400 B</div>
           </div>
-          <div className="text-sm font-semibold">{body.children.length}</div>
-        </div>
-        <div className="text-center">
-          <div className="text-[9px] text-[#666] uppercase">Gravity</div>
-          <div className="text-sm font-semibold">{body.info.gravity} m/s²</div>
-        </div>
-        <div className="text-center">
-          <div className="text-[9px] text-[#666] uppercase">Tilt</div>
-          <div className="text-sm font-semibold">{body.info.axialTilt}°</div>
-        </div>
-        <div className="text-center">
-          <div className="text-[9px] text-[#666] uppercase">Rings</div>
-          <div className="text-sm font-semibold">
-            {body.info.rings ? "Yes" : "No"}
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Age</div>
+            <div className="text-sm font-semibold">13.6 Gyr</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Arms</div>
+            <div className="text-sm font-semibold">4</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Rotation</div>
+            <div className="text-sm font-semibold">225 Myr</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Sun dist.</div>
+            <div className="text-sm font-semibold">26,000 ly</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Speed</div>
+            <div className="text-sm font-semibold">220 km/s</div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Day</div>
+            <div className="text-sm font-semibold">{body.info.dayLength}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Year</div>
+            <div className="text-sm font-semibold">{body.info.yearLength}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">
+              {body.type === "star" ? "Planets" : "Moons"}
+            </div>
+            <div className="text-sm font-semibold">{body.children.length}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Gravity</div>
+            <div className="text-sm font-semibold">{body.info.gravity} m/s²</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Tilt</div>
+            <div className="text-sm font-semibold">{body.info.axialTilt}°</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-[#666] uppercase">Rings</div>
+            <div className="text-sm font-semibold">
+              {body.info.rings ? "Yes" : "No"}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Atmosphere */}
       {body.info.atmosphere.length > 0 && (
@@ -119,7 +168,13 @@ export default function CelestialDetail({
       {/* Go to button */}
       <button
         className="w-full py-2.5 bg-[#ffffff15] border border-[#ffffff20] rounded-lg text-[13px] uppercase tracking-[2px] cursor-pointer hover:bg-[#ffffff25] transition-colors"
-        onClick={() => cameraNav?.setFlyTo(body)}
+        onClick={() => {
+          if (body.type === "galaxy") {
+            cameraNav?.setViewSnap("milkyway");
+          } else {
+            cameraNav?.setFlyTo(body);
+          }
+        }}
       >
         Go to {body.name} →
       </button>
@@ -128,7 +183,7 @@ export default function CelestialDetail({
       {body.children.length > 0 && (
         <div>
           <div className="text-[9px] text-[#666] uppercase tracking-wider mb-2">
-            {body.type === "star" ? "Planets" : "Moons"}
+            {body.type === "galaxy" ? "Stars" : body.type === "star" ? "Planets" : "Moons"}
           </div>
           <div>
             {body.children.map((child, index) => (

@@ -75,7 +75,7 @@ export default function CelestialCard({ root, visible }: CelestialCardProps) {
       {/* Desktop card */}
       <div
         className={`fixed z-[999999999] sm:block hidden duration-500 top-0 right-0 h-screen ${
-          visible && open ? "translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="h-full w-[380px] bg-[#000000b3] bg-blur-custom p-6 overflow-y-auto custom-scrollbar text-white">
@@ -118,16 +118,14 @@ export default function CelestialCard({ root, visible }: CelestialCardProps) {
         </div>
 
         {/* Toggle tab */}
-        {visible && (
-          <div
+        <div
             className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full cursor-pointer"
             onClick={() => setOpen((prev) => !prev)}
           >
             <div className="bg-[#000000b3] bg-blur-custom text-white text-[11px] uppercase tracking-[2px] py-3 px-2 rounded-l-lg writing-vertical hover:bg-[#ffffff25] transition-colors border border-r-0 border-[#ffffff15]">
-              {open ? "✕" : "☰ Solar System"}
+              {open ? "✕" : "☰ Milky Way"}
             </div>
           </div>
-        )}
       </div>
     </>
   );
