@@ -126,13 +126,81 @@ export default function CelestialCard({ root, visible, externalOpen, onExternalT
 
         {/* Toggle tab */}
         <div
-            className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full cursor-pointer"
-            onClick={toggleOpen}
-          >
+          className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full cursor-pointer"
+          onClick={toggleOpen}
+        >
+          {open ? (
             <div className="bg-[#000000b3] bg-blur-custom text-white text-[11px] uppercase tracking-[2px] py-3 px-2 rounded-l-lg writing-vertical hover:bg-[#ffffff25] transition-colors border border-r-0 border-[#ffffff15]">
-              {open ? "✕" : "☰ Explore"}
+              ✕
             </div>
-          </div>
+          ) : (
+            <div className="relative">
+              {/* Animated border glow */}
+              <div className="absolute -inset-[1px] rounded-l-lg overflow-hidden">
+                <div
+                  className="absolute inset-0"
+                  style={{ animation: "explore-border-spin 5s linear infinite" }}
+                >
+                  <div
+                    className="w-[300%] h-[300%] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      background: "conic-gradient(from 0deg, transparent 0%, #4a90d9 12%, #7bb8f5 20%, transparent 35%, transparent 50%, #4a90d9 62%, #6aacf0 70%, transparent 85%)",
+                    }}
+                  />
+                </div>
+                <div className="absolute inset-[1.5px] bg-[#060610] rounded-l-sm" />
+              </div>
+
+              {/* Falling star particles */}
+              <div className="absolute inset-0 rounded-l-lg overflow-hidden pointer-events-none">
+                <div className="explore-star" style={{ left: "30%", animationDelay: "0s", animationDuration: "2.0s" }} />
+                <div className="explore-star" style={{ left: "60%", animationDelay: "0.8s", animationDuration: "1.7s" }} />
+                <div className="explore-star" style={{ left: "45%", animationDelay: "1.5s", animationDuration: "2.3s" }} />
+                <div className="explore-star" style={{ left: "20%", animationDelay: "2.2s", animationDuration: "1.9s" }} />
+                <div className="explore-star" style={{ left: "70%", animationDelay: "0.4s", animationDuration: "2.5s" }} />
+              </div>
+
+              {/* Ambient side glow */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{
+                  right: "-40px",
+                  width: "120px",
+                  height: "200px",
+                  background: "radial-gradient(ellipse at 100% 50%, rgba(74,144,217,0.15) 0%, rgba(74,144,217,0.05) 40%, transparent 70%)",
+                }}
+              />
+
+              {/* Button content */}
+              <div className="relative bg-gradient-to-b from-[rgba(74,144,217,0.12)] to-[rgba(40,80,150,0.04)] text-white text-[11px] uppercase tracking-[2px] py-3 px-2 rounded-l-lg writing-vertical">
+                <span className="relative z-10">☰ Explore</span>
+              </div>
+            </div>
+          )}
+
+          <style>{`
+            @keyframes explore-border-spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+            @keyframes explore-star-fall {
+              0% { transform: translateY(-4px); opacity: 0; }
+              15% { opacity: 1; }
+              85% { opacity: 0.5; }
+              100% { transform: translateY(120px); opacity: 0; }
+            }
+            .explore-star {
+              position: absolute;
+              top: -2px;
+              width: 2px;
+              height: 2px;
+              border-radius: 50%;
+              background: #4a90d9;
+              box-shadow: 0 0 4px #4a90d9, 0 0 8px rgba(74,144,217,0.4);
+              animation: explore-star-fall linear infinite;
+            }
+          `}</style>
+        </div>
       </div>
     </>
   );

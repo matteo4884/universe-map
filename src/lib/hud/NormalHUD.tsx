@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { ScaleContext } from "../../context/contexts";
 import { CameraNavigationContext } from "../../context/cameraNavigation";
 import { EphemerisContext } from "../../context/ephemeris";
@@ -31,16 +31,75 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
   const scaleCtx = useContext(ScaleContext);
   const cameraNav = useContext(CameraNavigationContext);
   const ephemeris = useContext(EphemerisContext);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   if (!scaleCtx) return null;
   const { realisticMode, setRealisticMode } = scaleCtx;
 
-  const isOnline = !!ephemeris.positions && !ephemeris.error;
-  const lastUpdate = ephemeris.loadedAt
-    ? new Date(ephemeris.loadedAt).toLocaleTimeString()
+  const dataDate = ephemeris.loadedAt
+    ? new Date(ephemeris.loadedAt).toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })
     : null;
 
   return (
+    <>
+    {/* Info modal — rendered outside the HUD stacking context */}
+    {infoOpen && (
+      <div className="fixed inset-0 z-[99999999999] flex items-center justify-center pointer-events-auto font-mono">
+        <div className="absolute inset-0 bg-[rgba(0,0,0,0.75)] backdrop-blur-sm" onClick={() => setInfoOpen(false)} />
+        <div className="relative max-w-md mx-4 border border-[rgba(255,255,255,0.12)] rounded-xl overflow-hidden">
+          {/* Gradient top accent */}
+          <div className="h-[2px] bg-gradient-to-r from-transparent via-[#4a90d9] to-transparent" />
+
+          <div className="bg-[#080810] p-8">
+            {/* Title */}
+            <div className="text-center mb-6">
+              <div className="text-[9px] tracking-[6px] text-[#4a90d9] uppercase mb-2">About</div>
+              <div className="text-xl font-bold tracking-[4px] text-white uppercase">Universe Map</div>
+            </div>
+
+            {/* Description */}
+            <div className="text-[12px] text-[rgba(255,255,255,0.6)] leading-relaxed mb-6 text-center">
+              An interactive 3D visualization of our Solar System and the Milky Way galaxy, with real scale distances and proportions. Built to offer an educational and illustrative experience of the cosmos we live in.
+            </div>
+
+            {/* Separator */}
+            <div className="border-t border-[rgba(255,255,255,0.08)] mb-6" />
+
+            {/* Credits grid */}
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.35)] uppercase">Built by</span>
+                <a
+                  href="https://matteobeu.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-[#4a90d9] hover:text-white transition-colors"
+                >
+                  Matteo Beu
+                </a>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.35)] uppercase">Data</span>
+                <span className="text-[11px] text-[rgba(255,255,255,0.6)]">NASA JPL Horizons</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.35)] uppercase">Engine</span>
+                <span className="text-[11px] text-[rgba(255,255,255,0.6)]">Three.js + React Three Fiber</span>
+              </div>
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={() => setInfoOpen(false)}
+              className="w-full text-[10px] tracking-[2px] uppercase py-2.5 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.12)] text-[rgba(255,255,255,0.5)] hover:text-white transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="fixed inset-0 z-[999999999] pointer-events-none font-mono">
 
       {/* ============================== */}
@@ -52,15 +111,9 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
         <div className="text-[11px] tracking-[6px] uppercase text-white font-light opacity-60">
           Universe Map
         </div>
-        <div className="flex items-center gap-2 mt-2">
-          <span className={`inline-flex items-center gap-1 text-[8px] ${isOnline ? "text-[#00ff88]" : "text-[#ff6b35]"}`}>
-            <span className={`inline-block w-[5px] h-[5px] rounded-full ${isOnline ? "bg-[#00ff88] shadow-[0_0_4px_#00ff88]" : "bg-[#ff6b35]"}`} />
-            {isOnline ? "LIVE" : "OFFLINE"}
-          </span>
-        </div>
-        {lastUpdate && (
-          <div className="text-[10px] text-[rgba(255,255,255,0.35)] mt-1 tracking-[1px]">
-            Last update {lastUpdate}
+        {dataDate && (
+          <div className="text-[10px] text-[rgba(255,255,255,0.35)] mt-2 tracking-[1px]">
+            Data: {dataDate}
           </div>
         )}
       </div>
@@ -73,7 +126,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
             <button
               key={view}
               onClick={() => cameraNav?.setViewSnap(view)}
-              className="text-[10px] tracking-[2px] uppercase py-1.5 px-4 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer text-right"
+              className="text-[10px] tracking-[2px] uppercase py-1.5 px-4 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer text-center w-full"
             >
               {view}
             </button>
@@ -86,7 +139,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
         {/* Toggles */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-end gap-3">
-            <span className="text-[9px] text-[rgba(255,255,255,0.4)] tracking-[2px] uppercase">Scale</span>
+            <span className="text-[9px] text-[rgba(255,255,255,0.4)] tracking-[2px] uppercase">Real Scale</span>
             <Toggle
               on={realisticMode}
               onToggle={() => {
@@ -104,12 +157,12 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
         {/* Separator */}
         <div className="w-full border-t border-[rgba(255,255,255,0.1)] my-1" />
 
-        {/* Explore button */}
+        {/* Info button */}
         <button
-          onClick={onToggleExplore}
-          className="text-[10px] tracking-[2px] uppercase py-2 px-4 rounded border border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.18)] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors cursor-pointer"
+          onClick={() => setInfoOpen(true)}
+          className="text-[10px] tracking-[2px] uppercase py-1.5 px-4 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer text-center w-full"
         >
-          {exploreOpen ? "✕ Close" : "☰ Explore"}
+          Info
         </button>
       </div>
 
@@ -122,17 +175,15 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
         <div className="text-[9px] tracking-[4px] uppercase text-white font-light opacity-60">
           Universe Map
         </div>
-        <div className="flex items-center gap-1.5 mt-1">
-          <span className={`inline-flex items-center gap-1 text-[7px] ${isOnline ? "text-[#00ff88]" : "text-[#ff6b35]"}`}>
-            <span className={`inline-block w-[4px] h-[4px] rounded-full ${isOnline ? "bg-[#00ff88]" : "bg-[#ff6b35]"}`} />
-            {isOnline ? "LIVE" : "OFF"}
-          </span>
-        </div>
+        {dataDate && (
+          <div className="text-[7px] text-[rgba(255,255,255,0.3)] mt-1 tracking-[1px]">
+            {dataDate}
+          </div>
+        )}
       </div>
 
       {/* Mobile: Top-right - Controls */}
       <div className="sm:hidden absolute top-3 right-3 flex gap-1.5 pointer-events-auto">
-        {/* Camera presets */}
         {(["top", "front", "home"] as const).map((view) => (
           <button
             key={view}
@@ -142,6 +193,12 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
             {view === "top" ? "T" : view === "front" ? "F" : "H"}
           </button>
         ))}
+        <button
+          onClick={() => setInfoOpen(true)}
+          className="w-8 h-8 rounded-lg border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[rgba(255,255,255,0.6)] text-[9px] cursor-pointer active:bg-[rgba(255,255,255,0.15)]"
+        >
+          i
+        </button>
       </div>
 
       {/* Mobile: Bottom bar - Toggles + Explore */}
@@ -149,7 +206,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-[8px] text-[rgba(255,255,255,0.4)] tracking-[1px] uppercase">Scale</span>
+              <span className="text-[8px] text-[rgba(255,255,255,0.4)] tracking-[1px] uppercase">Real Scale</span>
               <Toggle
                 on={realisticMode}
                 onToggle={() => {
@@ -172,5 +229,6 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
         </div>
       </div>
     </div>
+    </>
   );
 }
