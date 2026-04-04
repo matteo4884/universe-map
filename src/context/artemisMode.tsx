@@ -122,6 +122,12 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!active || !mission) return;
 
+    // Auto-deactivate if mission has ended
+    if (Date.now() > mission.endDate.getTime()) {
+      deactivate();
+      return;
+    }
+
     async function poll() {
       const data = await fetchArtemisLive();
       if (data) {
@@ -135,7 +141,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [active, mission]);
+  }, [active, mission, deactivate]);
 
   // Update online status every second
   useEffect(() => {
