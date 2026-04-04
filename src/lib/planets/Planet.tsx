@@ -1,4 +1,4 @@
-import { useState, useContext, useRef, useMemo } from "react";
+import { useState, useContext, useRef, useMemo, useEffect } from "react";
 import { ScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
 import { ArtemisModeContext } from "../../context/artemisMode";
@@ -82,6 +82,12 @@ export default function Planet({
     }
     return geo;
   }, [isSaturn, size]);
+
+  useEffect(() => {
+    return () => {
+      ringGeo?.dispose();
+    };
+  }, [ringGeo]);
 
   const spinRef = useRef<THREE.Group>(null);
 
