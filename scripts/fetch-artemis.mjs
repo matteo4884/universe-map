@@ -148,7 +148,10 @@ async function main() {
 
   const fs = await import("fs");
   const path = await import("path");
-  const outFile = path.join(process.cwd(), "public", "data", "artemis-live.json");
+  const distDir = path.join(process.cwd(), "dist", "data");
+  const publicDir = path.join(process.cwd(), "public", "data");
+  const dataDir = fs.existsSync(distDir) ? distDir : publicDir;
+  const outFile = path.join(dataDir, "artemis-live.json");
   fs.writeFileSync(outFile, JSON.stringify(output));
 
   await log(`${now.toISOString()} ${status} — ${ok.join(", ")}`);

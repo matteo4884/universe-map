@@ -199,10 +199,12 @@ async function main() {
     process.exit(1);
   }
 
-  // Write to file
+  // Write to file — dist/data in production, public/data in development
   const fs = await import("fs");
   const path = await import("path");
-  const outDir = path.join(process.cwd(), "public", "data");
+  const distDir = path.join(process.cwd(), "dist", "data");
+  const publicDir = path.join(process.cwd(), "public", "data");
+  const outDir = fs.existsSync(distDir) ? distDir : publicDir;
   fs.mkdirSync(outDir, { recursive: true });
   const outFile = path.join(outDir, "ephemeris.json");
   fs.writeFileSync(outFile, JSON.stringify(output));
