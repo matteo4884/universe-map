@@ -6,6 +6,7 @@ export interface UseEphemerisResult {
   trajectories: TrajectoryData | null;
   loading: boolean;
   error: boolean;
+  loadedAt: string | null;
 }
 
 export function useEphemeris(): UseEphemerisResult {
@@ -13,6 +14,7 @@ export function useEphemeris(): UseEphemerisResult {
   const [trajectories, setTrajectories] = useState<TrajectoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [loadedAt, setLoadedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,6 +28,7 @@ export function useEphemeris(): UseEphemerisResult {
         if (data && Object.keys(data.positions).length > 0) {
           setPositions(data.positions);
           setTrajectories(data.trajectories);
+          setLoadedAt(data.fetchedAt);
           console.log(
             `[Ephemeris] Loaded ${Object.keys(data.positions).length} positions, ` +
             `${Object.keys(data.trajectories).length} trajectories ` +
@@ -52,5 +55,5 @@ export function useEphemeris(): UseEphemerisResult {
     };
   }, []);
 
-  return { positions, trajectories, loading, error };
+  return { positions, trajectories, loading, error, loadedAt };
 }

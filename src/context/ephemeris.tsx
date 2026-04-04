@@ -6,4 +6,5 @@ export const EphemerisContext = createContext<UseEphemerisResult>({
   trajectories: null,
   loading: true,
   error: false,
+  loadedAt: null,
 });
