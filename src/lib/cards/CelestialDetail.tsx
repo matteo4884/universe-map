@@ -33,11 +33,13 @@ export default function CelestialDetail({
     <div className="flex flex-col gap-4">
       {/* Hero section */}
       <div className="flex gap-4 items-center">
-        {body.image && (
+        {body.image && body.image.length > 0 && (
           <img
+            key={body.image}
             src={`/images/${body.image}`}
             alt={body.name}
             className="w-28 h-28 object-contain flex-shrink-0"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         )}
         <div>
@@ -111,33 +113,55 @@ export default function CelestialDetail({
       ) : (
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Day</div>
+            <div className="text-[9px] text-[#666] uppercase">
+              {body.type === "moon" ? "Orbit" : "Day"}
+            </div>
             <div className="text-sm font-semibold">{body.info.dayLength}</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Year</div>
-            <div className="text-sm font-semibold">{body.info.yearLength}</div>
+            <div className="text-[9px] text-[#666] uppercase">
+              {body.type === "moon" ? "Speed" : "Year"}
+            </div>
+            <div className="text-sm font-semibold">
+              {body.type === "moon" ? body.info.orbitalSpeed + " km/s" : body.info.yearLength}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-[9px] text-[#666] uppercase">
-              {body.type === "star" ? "Planets" : "Moons"}
+              {body.type === "star" ? "Planets" : body.type === "moon" ? "Radius" : "Moons"}
             </div>
-            <div className="text-sm font-semibold">{body.children.length}</div>
+            <div className="text-sm font-semibold">
+              {body.type === "moon" ? body.radius.toLocaleString() + " km" : body.children.length}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-[9px] text-[#666] uppercase">Gravity</div>
             <div className="text-sm font-semibold">{body.info.gravity} m/s²</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Tilt</div>
-            <div className="text-sm font-semibold">{body.info.axialTilt}°</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Rings</div>
+            <div className="text-[9px] text-[#666] uppercase">
+              {body.type === "moon" ? "Eccentric." : "Tilt"}
+            </div>
             <div className="text-sm font-semibold">
-              {body.info.rings ? "Yes" : "No"}
+              {body.type === "moon" ? body.info.eccentricity : body.info.axialTilt + "°"}
             </div>
           </div>
+          {body.type !== "moon" && (
+            <div className="text-center">
+              <div className="text-[9px] text-[#666] uppercase">Rings</div>
+              <div className="text-sm font-semibold">
+                {body.info.rings ? "Yes" : "No"}
+              </div>
+            </div>
+          )}
+          {body.type === "moon" && (
+            <div className="text-center">
+              <div className="text-[9px] text-[#666] uppercase">Mag. Field</div>
+              <div className="text-sm font-semibold">
+                {body.info.magneticField ? "Yes" : "No"}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
