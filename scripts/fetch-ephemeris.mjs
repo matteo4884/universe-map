@@ -26,6 +26,25 @@ const BODIES = [
   { id: "301", name: "Moon", type: "moon", orbitDays: 30, stepSize: "1d" },
   { id: "401", name: "Phobos", type: "moon", orbitDays: 2, stepSize: "1h" },
   { id: "402", name: "Deimos", type: "moon", orbitDays: 5, stepSize: "2h" },
+  // Jupiter's moons
+  { id: "501", name: "Io", type: "moon", orbitDays: 2, stepSize: "1h" },
+  { id: "502", name: "Europa", type: "moon", orbitDays: 4, stepSize: "3h" },
+  { id: "503", name: "Ganymede", type: "moon", orbitDays: 8, stepSize: "6h" },
+  { id: "504", name: "Callisto", type: "moon", orbitDays: 17, stepSize: "12h" },
+  // Saturn's moons
+  { id: "606", name: "Titan", type: "moon", orbitDays: 16, stepSize: "12h" },
+  { id: "602", name: "Enceladus", type: "moon", orbitDays: 2, stepSize: "1h" },
+  { id: "601", name: "Mimas", type: "moon", orbitDays: 1, stepSize: "1h" },
+  { id: "605", name: "Rhea", type: "moon", orbitDays: 5, stepSize: "4h" },
+  { id: "608", name: "Iapetus", type: "moon", orbitDays: 80, stepSize: "2d" },
+  // Uranus's moons
+  { id: "705", name: "Miranda", type: "moon", orbitDays: 2, stepSize: "1h" },
+  { id: "701", name: "Ariel", type: "moon", orbitDays: 3, stepSize: "2h" },
+  { id: "702", name: "Umbriel", type: "moon", orbitDays: 5, stepSize: "4h" },
+  { id: "703", name: "Titania", type: "moon", orbitDays: 9, stepSize: "7h" },
+  { id: "704", name: "Oberon", type: "moon", orbitDays: 14, stepSize: "12h" },
+  // Neptune's moon
+  { id: "801", name: "Triton", type: "moon", orbitDays: 6, stepSize: "5h" },
 ];
 
 function delay(ms) {

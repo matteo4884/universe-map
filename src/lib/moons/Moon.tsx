@@ -1,4 +1,4 @@
-import { useRef, useMemo, useContext } from "react";
+import { useRef, useMemo, useEffect, useContext } from "react";
 import { useLoader, useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { CelestialBody } from "../../data";
@@ -32,8 +32,33 @@ export default function Moon({ position, size, moonObj }: MoonProps) {
   const { active: artemisActive } = useContext(ArtemisModeContext);
   const { selectBody } = useContext(BodySelectionContext);
   const isEarthMoon = moonObj?.name === "Moon";
-  const moonMap = useLoader(THREE.TextureLoader, "/2k_moon.jpg");
+
+  const textureMap: Record<string, string> = {
+    moon: "2k_moon.jpg",
+    phobos: "2k_moon.jpg",
+    deimos: "2k_moon.jpg",
+    io: "2k_io.jpg",
+    europa: "2k_europa.jpg",
+    ganymede: "2k_ganymede.jpg",
+    callisto: "2k_callisto.jpg",
+    titan: "2k_titan.jpg",
+    enceladus: "2k_moon.jpg",
+    rhea: "2k_moon.jpg",
+    mimas: "2k_moon.jpg",
+    iapetus: "2k_moon.jpg",
+    titania: "2k_moon.jpg",
+    oberon: "2k_moon.jpg",
+    ariel: "2k_moon.jpg",
+    umbriel: "2k_moon.jpg",
+    miranda: "2k_moon.jpg",
+    triton: "2k_moon.jpg",
+  };
+  const texture = textureMap[moonObj?.map ?? "moon"] ?? "2k_moon.jpg";
+  const moonMap = useLoader(THREE.TextureLoader, `/${texture}`);
+
   const groupRef = useRef<THREE.Group>(null);
+  const sphereGeo = useMemo(() => new THREE.SphereGeometry(1, 64, 64), []);
+  useEffect(() => () => { sphereGeo.dispose(); }, [sphereGeo]);
 
   const poleDir = useMemo(() => {
     if (moonObj?.info.poleRA != null && moonObj?.info.poleDec != null) {
@@ -54,8 +79,7 @@ export default function Moon({ position, size, moonObj }: MoonProps) {
   return (
     <group position={position}>
       <group ref={groupRef}>
-        <mesh rotation={[0, -Math.PI / 2, 0]} onClick={() => moonObj && selectBody(moonObj.id)}>
-          <sphereGeometry args={[size, 64, 64]} />
+        <mesh rotation={[0, -Math.PI / 2, 0]} onClick={() => moonObj && selectBody(moonObj.id)} geometry={sphereGeo} scale={[size, size, size]}>
           <meshStandardMaterial map={moonMap} />
         </mesh>
       </group>
