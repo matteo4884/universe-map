@@ -85,6 +85,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
   const [moonOverride, setMoonOverride] = useState<EphemerisPoint | null>(null);
   const intervalRef = useRef<number | null>(null);
   const animFrameRef = useRef<number | null>(null);
+  const lastUIUpdateRef = useRef<number>(0);
 
   // Check URL param on mount
   useEffect(() => {
@@ -161,32 +162,39 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
 
     function tick() {
       if (liveDataRef.current && mission) {
+        // Always update position for smooth 3D rendering
         const pos = interpolateSpacecraft(liveDataRef.current);
         setPosition(pos);
 
-        // Interpolate Earth and Moon too — keeps everything synchronized
-        const earthPos = interpolateBody(liveDataRef.current, "earth");
-        const moonPos = interpolateBody(liveDataRef.current, "moon");
-        setEarthOverride(earthPos);
-        setMoonOverride(moonPos);
+        // Throttle UI-only updates to 1/sec
+        const now = Date.now();
+        if (now - lastUIUpdateRef.current > 1000) {
+          lastUIUpdateRef.current = now;
 
-        // Telemetry from interpolated positions
-        const dx = pos.x - earthPos.x, dy = pos.y - earthPos.y, dz = pos.z - earthPos.z;
-        const distEarth = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          // Interpolate Earth and Moon — only needed for HUD display
+          const earthPos = interpolateBody(liveDataRef.current, "earth");
+          const moonPos = interpolateBody(liveDataRef.current, "moon");
+          setEarthOverride(earthPos);
+          setMoonOverride(moonPos);
 
-        const mx = pos.x - moonPos.x, my = pos.y - moonPos.y, mz = pos.z - moonPos.z;
-        const distMoon = Math.sqrt(mx * mx + my * my + mz * mz);
+          // Telemetry from interpolated positions
+          const dx = pos.x - earthPos.x, dy = pos.y - earthPos.y, dz = pos.z - earthPos.z;
+          const distEarth = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        const velocity = Math.sqrt((pos.vx ?? 0) ** 2 + (pos.vy ?? 0) ** 2 + (pos.vz ?? 0) ** 2);
-        const altitude = distEarth - EARTH_RADIUS_KM;
+          const mx = pos.x - moonPos.x, my = pos.y - moonPos.y, mz = pos.z - moonPos.z;
+          const distMoon = Math.sqrt(mx * mx + my * my + mz * mz);
 
-        const met = (Date.now() - mission.startDate.getTime()) / 1000;
-        let phase = mission.phases[0].name;
-        for (const p of mission.phases) {
-          if (met >= p.startMET) phase = p.name;
+          const velocity = Math.sqrt((pos.vx ?? 0) ** 2 + (pos.vy ?? 0) ** 2 + (pos.vz ?? 0) ** 2);
+          const altitude = distEarth - EARTH_RADIUS_KM;
+
+          const met = (now - mission.startDate.getTime()) / 1000;
+          let phase = mission.phases[0].name;
+          for (const p of mission.phases) {
+            if (met >= p.startMET) phase = p.name;
+          }
+
+          setTelemetry({ distEarth, distMoon, velocity, altitude, met, phase });
         }
-
-        setTelemetry({ distEarth, distMoon, velocity, altitude, met, phase });
       }
       animFrameRef.current = requestAnimationFrame(tick);
     }
