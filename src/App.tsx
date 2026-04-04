@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { TrackballControls } from '@react-three/drei';
-import { useState, useRef, useContext, useEffect, useMemo } from 'react';
+import { useState, useRef, useContext, useEffect, useMemo, useCallback } from 'react';
 import { CameraNavigationContext } from './context/cameraNavigation';
 import { TrackballControls as TrackballControlsImpl } from 'three-stdlib';
 import CameraFly from './lib/camera/CameraFly';
@@ -21,6 +21,7 @@ import { ScaleContext } from './context/contexts';
 import ArtemisButton from './lib/artemis/ArtemisButton';
 import ArtemisHUD from './lib/artemis/ArtemisHUD';
 import OrionSpacecraft from './lib/artemis/OrionSpacecraft';
+import { BodySelectionContext } from './context/bodySelection';
 
 const BACKGROUND_COLOR = new THREE.Color(0, 0, 0);
 
@@ -38,10 +39,12 @@ function ArtemisAwareUI({
   showOrbits,
   setShowOrbits,
   visible,
+  navigateToId,
 }: {
   showOrbits: boolean;
   setShowOrbits: (v: boolean) => void;
   visible: boolean;
+  navigateToId: number | null;
 }) {
   const { active, position } = useContext(ArtemisModeContext);
   const scaleCtx = useContext(ScaleContext);
@@ -50,6 +53,12 @@ function ArtemisAwareUI({
   const [transitioning, setTransitioning] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
   const [exploreOpen, setExploreOpen] = useState(false);
+
+  // Open explore panel when a body is clicked in 3D
+  useEffect(() => {
+    if (navigateToId != null) setExploreOpen(true);
+  }, [navigateToId]);
+
   const exitTimeout1 = useRef<number | null>(null);
   const exitTimeout2 = useRef<number | null>(null);
 
@@ -122,8 +131,6 @@ function ArtemisAwareUI({
         <NormalHUD
           showOrbits={showOrbits}
           setShowOrbits={setShowOrbits}
-          onToggleExplore={() => setExploreOpen((prev) => !prev)}
-          exploreOpen={exploreOpen}
         />
       )}
       {!active && (
@@ -132,9 +139,10 @@ function ArtemisAwareUI({
           visible={visible}
           externalOpen={exploreOpen}
           onExternalToggle={() => setExploreOpen((prev) => !prev)}
+          navigateToId={navigateToId}
         />
       )}
-      {!active && <MobileSheet root={MILKY_WAY} visible={visible} />}
+      {!active && <MobileSheet root={MILKY_WAY} visible={visible} navigateToId={navigateToId} />}
       <ArtemisButton />
       <ArtemisHUD />
     </>
@@ -166,6 +174,21 @@ function AppInner() {
   const ephemeris = useEphemeris();
   const mergedEphemeris = useArtemisEphemeris(ephemeris);
   const [showOrbits, setShowOrbits] = useState(true);
+  const [navigateToId, setNavigateToId] = useState<number | null>(null);
+
+  const selectBody = useCallback((bodyId: number) => {
+    setNavigateToId(bodyId);
+  }, []);
+
+  // Clear navigateToId after components had a chance to process it
+  useEffect(() => {
+    if (navigateToId != null) {
+      const timer = setTimeout(() => setNavigateToId(null), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [navigateToId]);
+
+  const bodySelectionValue = useMemo(() => ({ selectBody }), [selectBody]);
 
   const stars = CELESTIAL_BODIES.map((star) => (
     <Star
@@ -180,6 +203,7 @@ function AppInner() {
   ));
 
   return (
+    <BodySelectionContext.Provider value={bodySelectionValue}>
     <EphemerisContext.Provider value={mergedEphemeris}>
       <LoadingScreen loading={ephemeris.loading} error={ephemeris.error} />
       <div className="noselect">
@@ -219,9 +243,10 @@ function AppInner() {
             </Canvas>
           )}
         </div>
-        <ArtemisAwareUI showOrbits={showOrbits} setShowOrbits={setShowOrbits} visible={visible} />
+        <ArtemisAwareUI showOrbits={showOrbits} setShowOrbits={setShowOrbits} visible={visible} navigateToId={navigateToId} />
       </div>
     </EphemerisContext.Provider>
+    </BodySelectionContext.Provider>
   );
 }
 

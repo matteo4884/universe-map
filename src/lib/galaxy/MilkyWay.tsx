@@ -94,14 +94,17 @@ export default function MilkyWay() {
         />
       </points>
 
-      {/* Solar System label — hidden when camera is close */}
+      {/* Solar System marker — hidden when camera is close */}
       {labelVisible && (
         <Html position={SUN_GALAXY_POSITION} center>
           <div
-            className="px-2 py-1 rounded-md font-bold bg-[#ffffff1e] hover:bg-[#919191] uppercase pointer-events-auto text-white text-[11px] cursor-pointer noselect"
+            className="font-mono pointer-events-auto cursor-pointer noselect flex flex-col items-center gap-1.5"
             onClick={handleSunClick}
           >
-            Solar System
+            <div className="text-[9px] tracking-[3px] text-[rgba(255,255,255,0.5)] uppercase hover:text-white transition-colors">
+              Solar System
+            </div>
+            <div className="w-[3px] h-[3px] rounded-full bg-[#ffdd66] shadow-[0_0_4px_#ffcc44,0_0_10px_rgba(255,200,50,0.5),0_0_20px_rgba(255,170,0,0.2)]" />
           </div>
         </Html>
       )}

@@ -6,8 +6,6 @@ import { EphemerisContext } from "../../context/ephemeris";
 interface NormalHUDProps {
   showOrbits: boolean;
   setShowOrbits: (v: boolean) => void;
-  onToggleExplore: () => void;
-  exploreOpen: boolean;
 }
 
 function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
@@ -27,7 +25,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   );
 }
 
-export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, exploreOpen }: NormalHUDProps) {
+export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps) {
   const scaleCtx = useContext(ScaleContext);
   const cameraNav = useContext(CameraNavigationContext);
   const ephemeris = useContext(EphemerisContext);
@@ -128,7 +126,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
               onClick={() => cameraNav?.setViewSnap(view)}
               className="text-[10px] tracking-[2px] uppercase py-1.5 px-4 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer text-center w-full"
             >
-              {view}
+              {view === "home" ? "overview" : view}
             </button>
           ))}
         </div>
@@ -183,49 +181,39 @@ export default function NormalHUD({ showOrbits, setShowOrbits, onToggleExplore, 
       </div>
 
       {/* Mobile: Top-right - Controls */}
-      <div className="sm:hidden absolute top-3 right-3 flex gap-1.5 pointer-events-auto">
-        {(["top", "front", "home"] as const).map((view) => (
+      <div className="sm:hidden absolute top-3 right-3 flex flex-col gap-1 pointer-events-auto">
+        <div className="flex gap-1">
+          {(["top", "front", "home"] as const).map((view) => (
+            <button
+              key={view}
+              onClick={() => cameraNav?.setViewSnap(view)}
+              className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.5)] text-[7px] uppercase tracking-[1px] cursor-pointer active:bg-[rgba(255,255,255,0.15)]"
+            >
+              {view === "home" ? "overview" : view}
+            </button>
+          ))}
           <button
-            key={view}
-            onClick={() => cameraNav?.setViewSnap(view)}
-            className="w-8 h-8 rounded-lg border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[rgba(255,255,255,0.6)] text-[8px] uppercase tracking-[1px] cursor-pointer active:bg-[rgba(255,255,255,0.15)]"
+            onClick={() => setInfoOpen(true)}
+            className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.5)] text-[7px] uppercase tracking-[1px] cursor-pointer active:bg-[rgba(255,255,255,0.15)]"
           >
-            {view === "top" ? "T" : view === "front" ? "F" : "H"}
+            Info
           </button>
-        ))}
-        <button
-          onClick={() => setInfoOpen(true)}
-          className="w-8 h-8 rounded-lg border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-[rgba(255,255,255,0.6)] text-[9px] cursor-pointer active:bg-[rgba(255,255,255,0.15)]"
-        >
-          i
-        </button>
-      </div>
-
-      {/* Mobile: Bottom bar - Toggles + Explore */}
-      <div className="sm:hidden absolute bottom-16 left-0 right-0 px-3 pointer-events-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[8px] text-[rgba(255,255,255,0.4)] tracking-[1px] uppercase">Real Scale</span>
-              <Toggle
-                on={realisticMode}
-                onToggle={() => {
-                  setRealisticMode(!realisticMode);
-                  cameraNav?.setViewSnap("home");
-                }}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[8px] text-[rgba(255,255,255,0.4)] tracking-[1px] uppercase">Orbits</span>
-              <Toggle on={showOrbits} onToggle={() => setShowOrbits(!showOrbits)} />
-            </div>
+        </div>
+        <div className="flex gap-2 justify-end items-center mt-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[7px] text-[rgba(255,255,255,0.35)] tracking-[1px] uppercase">Scale</span>
+            <Toggle
+              on={realisticMode}
+              onToggle={() => {
+                setRealisticMode(!realisticMode);
+                cameraNav?.setViewSnap("home");
+              }}
+            />
           </div>
-          <button
-            onClick={onToggleExplore}
-            className="text-[9px] tracking-[1px] uppercase py-1.5 px-3 rounded border border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.08)] text-[rgba(255,255,255,0.7)] cursor-pointer active:bg-[rgba(255,255,255,0.18)]"
-          >
-            {exploreOpen ? "✕" : "☰"}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[7px] text-[rgba(255,255,255,0.35)] tracking-[1px] uppercase">Orbits</span>
+            <Toggle on={showOrbits} onToggle={() => setShowOrbits(!showOrbits)} />
+          </div>
         </div>
       </div>
     </div>

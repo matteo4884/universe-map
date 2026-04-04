@@ -3,6 +3,7 @@ import { useLoader, useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { CelestialBody } from "../../data";
 import { ArtemisModeContext } from "../../context/artemisMode";
+import { BodySelectionContext } from "../../context/bodySelection";
 import * as THREE from "three";
 
 interface MoonProps {
@@ -29,6 +30,7 @@ function poleDirection(poleRADeg: number, poleDecDeg: number): THREE.Vector3 {
 
 export default function Moon({ position, size, moonObj }: MoonProps) {
   const { active: artemisActive } = useContext(ArtemisModeContext);
+  const { selectBody } = useContext(BodySelectionContext);
   const isEarthMoon = moonObj?.name === "Moon";
   const moonMap = useLoader(THREE.TextureLoader, "/2k_moon.jpg");
   const groupRef = useRef<THREE.Group>(null);
@@ -52,7 +54,7 @@ export default function Moon({ position, size, moonObj }: MoonProps) {
   return (
     <group position={position}>
       <group ref={groupRef}>
-        <mesh rotation={[0, -Math.PI / 2, 0]}>
+        <mesh rotation={[0, -Math.PI / 2, 0]} onClick={() => moonObj && selectBody(moonObj.id)}>
           <sphereGeometry args={[size, 64, 64]} />
           <meshStandardMaterial map={moonMap} />
         </mesh>

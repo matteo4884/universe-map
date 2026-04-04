@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { CelestialBody } from "../../data";
 import CelestialDetail from "./CelestialDetail";
+import { findPathToBody } from "../../context/bodySelection";
 
 interface CelestialCardProps {
   root: CelestialBody;
   visible: boolean;
   externalOpen?: boolean;
   onExternalToggle?: () => void;
+  navigateToId?: number | null;
 }
 
 function getBodyAtPath(root: CelestialBody, path: number[]): CelestialBody {
@@ -32,7 +34,7 @@ function getBreadcrumb(
   return crumbs;
 }
 
-export default function CelestialCard({ root, visible, externalOpen, onExternalToggle }: CelestialCardProps) {
+export default function CelestialCard({ root, visible: _visible, externalOpen, onExternalToggle, navigateToId }: CelestialCardProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const toggleOpen = () => {
@@ -44,6 +46,16 @@ export default function CelestialCard({ root, visible, externalOpen, onExternalT
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [displayPath, setDisplayPath] = useState<number[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Navigate to a specific body when navigateToId is set
+  useEffect(() => {
+    if (navigateToId == null) return;
+    const targetPath = findPathToBody(root, navigateToId);
+    if (targetPath) {
+      setPath(targetPath);
+      setDisplayPath(targetPath);
+    }
+  }, [navigateToId, root]);
 
   const body = getBodyAtPath(root, displayPath);
   const breadcrumb = getBreadcrumb(root, displayPath);
@@ -178,28 +190,6 @@ export default function CelestialCard({ root, visible, externalOpen, onExternalT
             </div>
           )}
 
-          <style>{`
-            @keyframes explore-border-spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-            @keyframes explore-star-fall {
-              0% { transform: translateY(-4px); opacity: 0; }
-              15% { opacity: 1; }
-              85% { opacity: 0.5; }
-              100% { transform: translateY(120px); opacity: 0; }
-            }
-            .explore-star {
-              position: absolute;
-              top: -2px;
-              width: 2px;
-              height: 2px;
-              border-radius: 50%;
-              background: #4a90d9;
-              box-shadow: 0 0 4px #4a90d9, 0 0 8px rgba(74,144,217,0.4);
-              animation: explore-star-fall linear infinite;
-            }
-          `}</style>
         </div>
       </div>
     </>

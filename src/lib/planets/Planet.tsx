@@ -8,6 +8,7 @@ import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinA
 import Moon from "../moons/Moon";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
+import { BodySelectionContext } from "../../context/bodySelection";
 
 interface PlanetProps {
   map: string;
@@ -15,6 +16,7 @@ interface PlanetProps {
   size: number;
   planetObj: CelestialBody;
   starObj: CelestialBody;
+  solarSystemVisible: boolean;
 }
 
 export default function Planet({
@@ -23,15 +25,16 @@ export default function Planet({
   size,
   planetObj,
   starObj,
+  solarSystemVisible,
 }: PlanetProps) {
   const scaleCtx = useContext(ScaleContext);
   if (!scaleCtx) throw new Error("Must be within ScaleProvider");
   const { blend } = scaleCtx;
   const { positions } = useContext(EphemerisContext);
   const { active: artemisActive } = useContext(ArtemisModeContext);
+  const { selectBody } = useContext(BodySelectionContext);
   const isEarth = map === "earth";
   const isSaturn = map === "saturn";
-  const isArtemisRelevant = isEarth || map === "moon";
 
   const textureMap: Record<string, string> = {
     mercury: "2k_mercury.jpg",
@@ -69,8 +72,8 @@ export default function Planet({
 
   const ringGeo = useMemo(() => {
     if (!isSaturn) return null;
-    const innerR = size * 1.28;
-    const outerR = size * 2.41;
+    const innerR = 1.28;
+    const outerR = 2.41;
     const geo = new THREE.RingGeometry(innerR, outerR, 64);
     const pos = geo.attributes.position;
     const uv = geo.attributes.uv;
@@ -81,13 +84,18 @@ export default function Planet({
       uv.setXY(i, (r - innerR) / (outerR - innerR), 0.5);
     }
     return geo;
-  }, [isSaturn, size]);
+  }, [isSaturn]);
 
   useEffect(() => {
     return () => {
       ringGeo?.dispose();
     };
   }, [ringGeo]);
+
+  // Sphere geometry created once, scaled by mesh
+  const sphereGeo = useMemo(() => new THREE.SphereGeometry(1, 64, 64), []);
+  const cloudGeo = useMemo(() => new THREE.SphereGeometry(1, 64, 64), []);
+  useEffect(() => () => { sphereGeo.dispose(); cloudGeo.dispose(); }, [sphereGeo, cloudGeo]);
 
   const spinRef = useRef<THREE.Group>(null);
 
@@ -157,7 +165,7 @@ export default function Planet({
     <group position={position}>
       <group quaternion={poleQuat}>
         {ringGeo && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={ringGeo}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={ringGeo} scale={[size, size, size]}>
             <meshStandardMaterial
               map={ringTexture}
               transparent
@@ -169,17 +177,15 @@ export default function Planet({
         <group ref={spinRef}>
           {isEarth ? (
             <group>
-              <mesh>
-                <sphereGeometry args={[size, 64, 64]} />
+              <mesh geometry={sphereGeo} scale={[size, size, size]} onClick={() => selectBody(planetObj.id)}>
                 <meshStandardMaterial
                   map={colorMap}
                   emissiveMap={nightMap}
                   emissiveIntensity={1.2}
-                  emissive={new THREE.Color(0xffffff)}
+                  emissive="#ffffff"
                 />
               </mesh>
-              <mesh>
-                <sphereGeometry args={[size + 0.002, 64, 64]} />
+              <mesh geometry={cloudGeo} scale={[size + 0.002, size + 0.002, size + 0.002]}>
                 <meshStandardMaterial
                   map={cloudMap}
                   transparent={true}
@@ -189,17 +195,19 @@ export default function Planet({
               </mesh>
             </group>
           ) : (
-            <mesh>
-              <sphereGeometry args={[size, 64, 64]} />
+            <mesh geometry={sphereGeo} scale={[size, size, size]} onClick={() => selectBody(planetObj.id)}>
               <meshStandardMaterial map={colorMap} />
             </mesh>
           )}
         </group>
       </group>
 
-      {(visible && !artemisActive) || (artemisActive && isEarth) ? (
-        <Html center className="pointer-events-none noselect" position={[0, 0, size * 2.5]}>
-          <div className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.6)] uppercase font-mono whitespace-nowrap">
+      {solarSystemVisible && ((visible && !artemisActive) || (artemisActive && isEarth)) ? (
+        <Html center className="noselect" position={[0, 0, size * 2.5]}>
+          <div
+            className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.6)] uppercase font-mono whitespace-nowrap cursor-pointer hover:text-white transition-colors pointer-events-auto"
+            onClick={() => selectBody(planetObj.id)}
+          >
             {planetObj.name}
           </div>
         </Html>

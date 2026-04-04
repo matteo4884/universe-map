@@ -130,3 +130,47 @@ body {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
+
+/* Artemis button animations */
+@keyframes artemis-border-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes artemis-star-fall {
+  0% { transform: translateY(-4px); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 0.6; }
+  100% { transform: translateY(60px); opacity: 0; }
+}
+.artemis-star {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #ff9500;
+  box-shadow: 0 0 4px #ff8c00, 0 0 8px rgba(255,140,0,0.4);
+  animation: artemis-star-fall linear infinite;
+}
+
+/* Explore button animations */
+@keyframes explore-border-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes explore-star-fall {
+  0% { transform: translateY(-4px); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(120px); opacity: 0; }
+}
+.explore-star {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #4a90d9;
+  box-shadow: 0 0 4px #4a90d9, 0 0 8px rgba(74,144,217,0.4);
+  animation: explore-star-fall linear infinite;
+}

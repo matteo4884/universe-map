@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useProgress } from "@react-three/drei";
 
 interface LoadingScreenProps {
   loading: boolean;
@@ -9,9 +10,19 @@ export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
   const [visible, setVisible] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [showOffline, setShowOffline] = useState(false);
+  const { progress, active: assetsLoading } = useProgress();
+  const [assetsStarted, setAssetsStarted] = useState(false);
+
+  // Track that Three.js has started loading at least once
+  useEffect(() => {
+    if (assetsLoading) setAssetsStarted(true);
+  }, [assetsLoading]);
+
+  // Ready when: ephemeris loaded AND (assets finished loading OR never started after a grace period)
+  const allReady = !loading && assetsStarted && !assetsLoading && progress === 100;
 
   useEffect(() => {
-    if (!loading) {
+    if (allReady) {
       if (error) {
         setShowOffline(true);
         setTimeout(() => setShowOffline(false), 3000);
@@ -20,7 +31,7 @@ export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
       const timer = setTimeout(() => setVisible(false), 500);
       return () => clearTimeout(timer);
     }
-  }, [loading, error]);
+  }, [allReady, error]);
 
   if (!visible && !showOffline) return null;
 

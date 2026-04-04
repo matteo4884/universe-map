@@ -7,7 +7,7 @@ export default function ArtemisButton() {
   if (!mission || active) return null;
 
   return (
-    <div className="fixed z-[999999999] bottom-6 left-1/2 -translate-x-1/2">
+    <div className="fixed z-[999999999] bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2">
       {/* Soft ambient glow from below screen edge */}
       <div
         className="fixed left-1/2 -translate-x-1/2 pointer-events-none"
@@ -71,57 +71,25 @@ export default function ArtemisButton() {
         {/* Button content */}
         <button
           onClick={activate}
-          className="relative flex items-center gap-3 px-6 py-3 cursor-pointer rounded bg-gradient-to-b from-[rgba(255,100,0,0.15)] to-[rgba(255,60,0,0.03)] hover:from-[rgba(255,100,0,0.3)] hover:to-[rgba(255,60,0,0.08)] transition-all"
+          className="relative flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 cursor-pointer rounded bg-gradient-to-b from-[rgba(255,100,0,0.15)] to-[rgba(255,60,0,0.03)] hover:from-[rgba(255,100,0,0.3)] hover:to-[rgba(255,60,0,0.08)] transition-all"
           style={{
             clipPath:
               "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
           }}
         >
-          <span className="text-base">🚀</span>
+          <span className="text-sm sm:text-base">🚀</span>
           <div className="flex flex-col items-start">
-            <span className="text-[9px] tracking-[4px] text-[#ff9500] uppercase font-mono">
+            <span className="hidden sm:block text-[9px] tracking-[4px] text-[#ff9500] uppercase font-mono">
               Mission Active
             </span>
-            <span className="text-[13px] tracking-[2px] text-white uppercase font-bold font-mono">
+            <span className="text-[11px] sm:text-[13px] tracking-[2px] text-white uppercase font-bold font-mono">
               {mission.name}
             </span>
           </div>
-          <div className="w-[6px] h-[6px] rounded-full bg-[#00ff88] shadow-[0_0_6px_#00ff88] ml-1" />
+          <div className="w-[5px] h-[5px] sm:w-[6px] sm:h-[6px] rounded-full bg-[#00ff88] shadow-[0_0_6px_#00ff88] ml-1" />
         </button>
       </div>
 
-      <style>{`
-        @keyframes artemis-border-spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes artemis-star-fall {
-          0% {
-            transform: translateY(-4px);
-            opacity: 0;
-          }
-          15% {
-            opacity: 1;
-          }
-          85% {
-            opacity: 0.6;
-          }
-          100% {
-            transform: translateY(60px);
-            opacity: 0;
-          }
-        }
-        .artemis-star {
-          position: absolute;
-          top: -2px;
-          width: 2px;
-          height: 2px;
-          border-radius: 50%;
-          background: #ff9500;
-          box-shadow: 0 0 4px #ff8c00, 0 0 8px rgba(255,140,0,0.4);
-          animation: artemis-star-fall linear infinite;
-        }
-      `}</style>
     </div>
   );
 }

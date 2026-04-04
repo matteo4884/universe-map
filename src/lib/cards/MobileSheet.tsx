@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MdClose } from "react-icons/md";
 import { CelestialBody } from "../../data";
 import CelestialDetail from "./CelestialDetail";
+import { findPathToBody } from "../../context/bodySelection";
 
 interface MobileSheetProps {
   root: CelestialBody;
   visible: boolean;
+  navigateToId?: number | null;
 }
 
 function getBodyAtPath(root: CelestialBody, path: number[]): CelestialBody {
@@ -31,23 +33,61 @@ function getBreadcrumb(
   return crumbs;
 }
 
-export default function MobileSheet({ root, visible }: MobileSheetProps) {
+export default function MobileSheet({ root, visible: _visible, navigateToId }: MobileSheetProps) {
   const [open, setOpen] = useState(false);
   const [path, setPath] = useState<number[]>([]);
+
+  // Navigate to a specific body when navigateToId is set
+  useEffect(() => {
+    if (navigateToId == null) return;
+    const targetPath = findPathToBody(root, navigateToId);
+    if (targetPath) {
+      setPath(targetPath);
+      setOpen(true);
+    }
+  }, [navigateToId, root]);
 
   const body = getBodyAtPath(root, path);
   const breadcrumb = getBreadcrumb(root, path);
 
   return (
     <>
-      {/* Bottom tab */}
+      {/* Explore tab — same animated style as desktop */}
       {!open && (
         <div
-          className="fixed z-[999999999] sm:hidden bottom-0 right-4 cursor-pointer"
+          className="fixed z-[999999999] sm:hidden top-1/2 -translate-y-1/2 right-0 cursor-pointer"
           onClick={() => setOpen(true)}
         >
-          <div className="bg-[#000000b3] bg-blur-custom text-white text-[10px] uppercase tracking-[2px] px-4 py-2 rounded-t-lg border border-b-0 border-[#ffffff15] hover:bg-[#ffffff25] transition-colors">
-            ☰ Milky Way
+          <div className="relative">
+            {/* Animated border glow */}
+            <div className="absolute -inset-[1px] rounded-l-lg overflow-hidden">
+              <div
+                className="absolute inset-0"
+                style={{ animation: "explore-border-spin 5s linear infinite" }}
+              >
+                <div
+                  className="w-[300%] h-[300%] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                  style={{
+                    background: "conic-gradient(from 0deg, transparent 0%, #4a90d9 12%, #7bb8f5 20%, transparent 35%, transparent 50%, #4a90d9 62%, #6aacf0 70%, transparent 85%)",
+                  }}
+                />
+              </div>
+              <div className="absolute inset-[1.5px] bg-[#060610] rounded-l-sm" />
+            </div>
+
+            {/* Falling star particles */}
+            <div className="absolute inset-0 rounded-l-lg overflow-hidden pointer-events-none">
+              <div className="explore-star" style={{ left: "30%", animationDelay: "0s", animationDuration: "2.0s" }} />
+              <div className="explore-star" style={{ left: "60%", animationDelay: "0.8s", animationDuration: "1.7s" }} />
+              <div className="explore-star" style={{ left: "45%", animationDelay: "1.5s", animationDuration: "2.3s" }} />
+              <div className="explore-star" style={{ left: "20%", animationDelay: "2.2s", animationDuration: "1.9s" }} />
+              <div className="explore-star" style={{ left: "70%", animationDelay: "0.4s", animationDuration: "2.5s" }} />
+            </div>
+
+            {/* Button content */}
+            <div className="relative bg-gradient-to-b from-[rgba(74,144,217,0.12)] to-[rgba(40,80,150,0.04)] text-white text-[10px] uppercase tracking-[2px] py-3 px-2 rounded-l-lg writing-vertical">
+              <span className="relative z-10">☰ Explore</span>
+            </div>
           </div>
         </div>
       )}

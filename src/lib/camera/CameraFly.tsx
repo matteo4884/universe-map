@@ -4,7 +4,6 @@ import * as THREE from "three";
 import { TrackballControls as TrackballControlsImpl } from "three-stdlib";
 import {
   CameraNavigationContext,
-  ViewDirection,
 } from "../../context/cameraNavigation";
 import { ScaleContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
