@@ -104,39 +104,35 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
       {/* DESKTOP (sm and above)         */}
       {/* ============================== */}
 
-      {/* Top-left: Title + Status */}
-      <div className="absolute top-4 left-4 pointer-events-auto hidden sm:block">
-        <div className="text-[11px] tracking-[6px] uppercase text-white font-light opacity-60">
-          Universe Map
-        </div>
-        {dataDate && (
-          <div className="text-[10px] text-[rgba(255,255,255,0.35)] mt-2 tracking-[1px]">
-            Data: {dataDate}
+      {/* Top-left: Title + Status + Controls */}
+      <div className="absolute top-4 left-4 pointer-events-auto hidden sm:flex flex-col gap-3">
+        <div>
+          <div className="text-[11px] tracking-[6px] uppercase text-white font-light opacity-60">
+            Universe Map
           </div>
-        )}
-      </div>
+          {dataDate && (
+            <div className="text-[10px] text-[rgba(255,255,255,0.35)] mt-2 tracking-[1px]">
+              Data: {dataDate}
+            </div>
+          )}
+        </div>
 
-      {/* Top-right: Controls */}
-      <div className="absolute top-4 right-4 hidden sm:flex flex-col items-end gap-2 pointer-events-auto">
         {/* Camera presets */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex gap-1.5">
           {(["top", "front", "home"] as const).map((view) => (
             <button
               key={view}
               onClick={() => cameraNav?.setViewSnap(view)}
-              className="text-[10px] tracking-[2px] uppercase py-1.5 px-4 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer text-center w-full"
+              className="text-[10px] tracking-[2px] uppercase py-1.5 px-3 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer text-center"
             >
               {view === "home" ? "overview" : view}
             </button>
           ))}
         </div>
 
-        {/* Separator */}
-        <div className="w-full border-t border-[rgba(255,255,255,0.1)] my-1" />
-
         {/* Toggles */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <span className="text-[9px] text-[rgba(255,255,255,0.4)] tracking-[2px] uppercase">Real Scale</span>
             <Toggle
               on={realisticMode}
@@ -146,19 +142,16 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
               }}
             />
           </div>
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center gap-2">
             <span className="text-[9px] text-[rgba(255,255,255,0.4)] tracking-[2px] uppercase">Orbits</span>
             <Toggle on={showOrbits} onToggle={() => setShowOrbits(!showOrbits)} />
           </div>
         </div>
 
-        {/* Separator */}
-        <div className="w-full border-t border-[rgba(255,255,255,0.1)] my-1" />
-
         {/* Info button */}
         <button
           onClick={() => setInfoOpen(true)}
-          className="text-[10px] tracking-[2px] uppercase py-1.5 px-4 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer text-center w-full"
+          className="text-[9px] tracking-[2px] uppercase py-1 px-3 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white transition-colors cursor-pointer w-fit"
         >
           Info
         </button>
