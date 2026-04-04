@@ -5,6 +5,8 @@ import CelestialDetail from "./CelestialDetail";
 interface CelestialCardProps {
   root: CelestialBody;
   visible: boolean;
+  externalOpen?: boolean;
+  onExternalToggle?: () => void;
 }
 
 function getBodyAtPath(root: CelestialBody, path: number[]): CelestialBody {
@@ -30,8 +32,13 @@ function getBreadcrumb(
   return crumbs;
 }
 
-export default function CelestialCard({ root, visible }: CelestialCardProps) {
-  const [open, setOpen] = useState(false);
+export default function CelestialCard({ root, visible, externalOpen, onExternalToggle }: CelestialCardProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const toggleOpen = () => {
+    if (onExternalToggle) onExternalToggle();
+    else setInternalOpen((prev) => !prev);
+  };
   const [path, setPath] = useState<number[]>([]);
   const [direction, setDirection] = useState<"left" | "right">("left");
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -120,10 +127,10 @@ export default function CelestialCard({ root, visible }: CelestialCardProps) {
         {/* Toggle tab */}
         <div
             className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full cursor-pointer"
-            onClick={() => setOpen((prev) => !prev)}
+            onClick={toggleOpen}
           >
             <div className="bg-[#000000b3] bg-blur-custom text-white text-[11px] uppercase tracking-[2px] py-3 px-2 rounded-l-lg writing-vertical hover:bg-[#ffffff25] transition-colors border border-r-0 border-[#ffffff15]">
-              {open ? "✕" : "☰ Milky Way"}
+              {open ? "✕" : "☰ Explore"}
             </div>
           </div>
       </div>

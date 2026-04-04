@@ -14,7 +14,7 @@ import MobileSheet from './lib/cards/MobileSheet';
 import { useEphemeris } from './hooks/useEphemeris';
 import { EphemerisContext } from './context/ephemeris';
 import LoadingScreen from './lib/LoadingScreen';
-import SettingsPanel from './lib/settings/SettingsPanel';
+import NormalHUD from './lib/hud/NormalHUD';
 import { blendPosition } from './helper/units';
 import { ArtemisModeProvider, ArtemisModeContext } from './context/artemisMode';
 import { ScaleContext } from './context/contexts';
@@ -49,6 +49,7 @@ function ArtemisAwareUI({
   const prevActive = useRef(false);
   const [transitioning, setTransitioning] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
+  const [exploreOpen, setExploreOpen] = useState(false);
 
   useEffect(() => {
     if (active && !prevActive.current) {
@@ -106,12 +107,21 @@ function ArtemisAwareUI({
       )}
 
       {!active && (
-        <div className="fixed top-4 left-0 w-screen text-center z-[999999999] pointer-events-none">
-          <div className="text-[11px] tracking-[6px] uppercase text-white font-light opacity-60">Universe Map</div>
-        </div>
+        <NormalHUD
+          showOrbits={showOrbits}
+          setShowOrbits={setShowOrbits}
+          onToggleExplore={() => setExploreOpen((prev) => !prev)}
+          exploreOpen={exploreOpen}
+        />
       )}
-      {!active && <SettingsPanel showOrbits={showOrbits} setShowOrbits={setShowOrbits} />}
-      {!active && <CelestialCard root={MILKY_WAY} visible={visible} />}
+      {!active && (
+        <CelestialCard
+          root={MILKY_WAY}
+          visible={visible}
+          externalOpen={exploreOpen}
+          onExternalToggle={() => setExploreOpen((prev) => !prev)}
+        />
+      )}
       {!active && <MobileSheet root={MILKY_WAY} visible={visible} />}
       <ArtemisButton />
       <ArtemisHUD />
