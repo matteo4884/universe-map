@@ -12,7 +12,7 @@ const HORIZONS_API = "https://ssd.jpl.nasa.gov/api/horizons.api";
 
 const BODIES = [
   { id: "-1024", key: "spacecraft", needVelocity: true },
-  { id: "399", key: "earth", needVelocity: false },
+  { id: "399", key: "earth", needVelocity: true },
   { id: "301", key: "moon", needVelocity: false },
 ];
 

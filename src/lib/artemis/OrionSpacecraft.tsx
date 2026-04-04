@@ -6,7 +6,7 @@ import { ArtemisModeContext } from "../../context/artemisMode";
 import { blendPosition } from "../../helper/units";
 
 const REAL_SCALE = 1 / 6371000; // ~8m
-const ENHANCED_SCALE = 0.002; // ~16km — visible without z-fighting
+const ENHANCED_SCALE = 0.002; // ~130km — visible without z-fighting
 
 function OrionModelSimple() {
   const { scene } = useGLTF("/models/orion.glb");

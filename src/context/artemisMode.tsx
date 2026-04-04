@@ -57,7 +57,7 @@ const STALE_THRESHOLD = 10 * 60 * 1000;
 const EARTH_RADIUS_KM = 6371;
 
 /** Interpolate a body between now and ahead based on wall clock */
-function interpolateBody(data: ArtemisLiveData, key: "earth" | "moon"): EphemerisPoint {
+function interpolateBody(data: ArtemisLiveData, key: "earth" | "moon"): ArtemisPoint {
   const body = data[key];
   if (!body.ahead) return body.now;
   const fetchedAt = new Date(data.fetchedAt).getTime();
@@ -67,6 +67,9 @@ function interpolateBody(data: ArtemisLiveData, key: "earth" | "moon"): Ephemeri
     x: body.now.x + (body.ahead.x - body.now.x) * t,
     y: body.now.y + (body.ahead.y - body.now.y) * t,
     z: body.now.z + (body.ahead.z - body.now.z) * t,
+    vx: (body.now.vx ?? 0) + ((body.ahead.vx ?? 0) - (body.now.vx ?? 0)) * t,
+    vy: (body.now.vy ?? 0) + ((body.ahead.vy ?? 0) - (body.now.vy ?? 0)) * t,
+    vz: (body.now.vz ?? 0) + ((body.ahead.vz ?? 0) - (body.now.vz ?? 0)) * t,
   };
 }
 
@@ -190,7 +193,11 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
           const mx = pos.x - moonPos.x, my = pos.y - moonPos.y, mz = pos.z - moonPos.z;
           const distMoon = Math.sqrt(mx * mx + my * my + mz * mz);
 
-          const velocity = Math.sqrt((pos.vx ?? 0) ** 2 + (pos.vy ?? 0) ** 2 + (pos.vz ?? 0) ** 2);
+          // Velocity relative to Earth (subtract Earth's heliocentric velocity)
+          const relVx = (pos.vx ?? 0) - (earthPos.vx ?? 0);
+          const relVy = (pos.vy ?? 0) - (earthPos.vy ?? 0);
+          const relVz = (pos.vz ?? 0) - (earthPos.vz ?? 0);
+          const velocity = Math.sqrt(relVx ** 2 + relVy ** 2 + relVz ** 2);
           const altitude = distEarth - EARTH_RADIUS_KM;
 
           const met = (now - mission.startDate.getTime()) / 1000;
