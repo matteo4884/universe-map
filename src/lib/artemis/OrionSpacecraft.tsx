@@ -41,9 +41,10 @@ export default function OrionSpacecraft() {
 
     if (position.vx !== undefined && position.vy !== undefined && position.vz !== undefined) {
       if (position.vx !== 0 || position.vy !== 0 || position.vz !== 0) {
-        const forward = new THREE.Vector3(position.vx, position.vy, position.vz).normalize();
-        const target = rotRef.current.position.clone().add(forward);
-        rotRef.current.lookAt(target);
+        const forward = new THREE.Vector3(-position.vx, -position.vy, -position.vz).normalize();
+        const worldPos = posRef.current.getWorldPosition(new THREE.Vector3());
+        rotRef.current.up.set(0, 0, 1);
+        rotRef.current.lookAt(worldPos.x + forward.x, worldPos.y + forward.y, worldPos.z + forward.z);
       }
     }
   });
@@ -53,7 +54,7 @@ export default function OrionSpacecraft() {
   return (
     <group ref={posRef}>
       <group ref={rotRef}>
-        <group rotation={[Math.PI, 0, 0]}>
+        <group rotation={[-Math.PI / 2, Math.PI / 2, 0]}>
           <Suspense fallback={<OrionPlaceholder />}>
             {orionEnhanced ? <OrionModelCAD /> : <OrionModelSimple />}
           </Suspense>

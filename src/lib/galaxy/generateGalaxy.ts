@@ -56,9 +56,9 @@ export function generateGalaxy(): GalaxyData {
       y = dist * sinTheta * Math.sin(phi);
       z = dist * cosTheta * (BULGE_HEIGHT_SIGMA / BULGE_RADIUS);
 
-      r = 1.0;
-      g = 0.7 + Math.random() * 0.2;
-      b = 0.3 + Math.random() * 0.2;
+      r = 0.75;
+      g = 0.55 + Math.random() * 0.15;
+      b = 0.25 + Math.random() * 0.1;
     } else if (roll < 0.50) {
       // === ARMS (40%) — spiral structure, loosened scatter ===
       const armIndex = Math.floor(Math.random() * ARMS);
@@ -116,7 +116,7 @@ export function generateGalaxy(): GalaxyData {
 
     // Smaller sizes overall
     const sizeRoll = Math.random();
-    sizes[i] = 0.1 + sizeRoll * sizeRoll * 0.4;
+    sizes[i] = 0.2 + sizeRoll * sizeRoll * 0.5;
 
     phases[i] = Math.random() * Math.PI * 2;
   }

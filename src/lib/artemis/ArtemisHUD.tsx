@@ -171,7 +171,7 @@ export default function ArtemisHUD() {
                 }}
               />
             </div>
-            <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY 10</span>
+            <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY {Math.ceil((mission.endDate.getTime() - mission.startDate.getTime()) / 86400000)}</span>
           </div>
         )}
       </div>

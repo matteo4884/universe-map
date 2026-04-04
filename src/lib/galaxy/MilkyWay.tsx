@@ -15,12 +15,12 @@ const vertexShader = `
   uniform float uDpr;
 
   void main() {
-    vColor = aColor * 0.7;
+    vColor = aColor * 0.85;
     float twinkle = 0.8 + 0.2 * sin(uTime * 0.5 + aPhase);
     vAlpha = twinkle;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     gl_PointSize = aSize * (40.0 / -mvPosition.z) * uDpr;
-    gl_PointSize = clamp(gl_PointSize, 0.3 * uDpr, 2.0 * uDpr);
+    gl_PointSize = clamp(gl_PointSize, 0.4 * uDpr, 3.0 * uDpr);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -33,7 +33,7 @@ const fragmentShader = `
     float d = length(gl_PointCoord - vec2(0.5));
     if (d > 0.5) discard;
     float alpha = 1.0 - smoothstep(0.1, 0.5, d);
-    gl_FragColor = vec4(vColor, alpha * vAlpha * 0.14);
+    gl_FragColor = vec4(vColor, alpha * vAlpha * 0.25);
   }
 `;
 
@@ -90,7 +90,7 @@ export default function MilkyWay() {
           uniforms={uniforms}
           transparent
           depthWrite={false}
-          blending={THREE.NormalBlending}
+          blending={THREE.AdditiveBlending}
         />
       </points>
 
