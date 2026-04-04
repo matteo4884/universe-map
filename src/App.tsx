@@ -50,8 +50,14 @@ function ArtemisAwareUI({
   const [transitioning, setTransitioning] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
   const [exploreOpen, setExploreOpen] = useState(false);
+  const exitTimeout1 = useRef<number | null>(null);
+  const exitTimeout2 = useRef<number | null>(null);
 
   useEffect(() => {
+    // Clear any pending timeouts from previous runs
+    if (exitTimeout1.current) clearTimeout(exitTimeout1.current);
+    if (exitTimeout2.current) clearTimeout(exitTimeout2.current);
+
     if (active && !prevActive.current) {
       // Entering Artemis — show overlay, instant blend
       setTransitioning(true);
@@ -63,16 +69,22 @@ function ArtemisAwareUI({
       // Exiting Artemis — show overlay, instant blend back
       setTransitioning(true);
       setFadeOut(false);
-      setTimeout(() => {
+      exitTimeout1.current = window.setTimeout(() => {
         scaleCtx?.setBlendInstant(0);
         scaleCtx?.setRealisticMode(false);
         setShowOrbits(true);
         cameraNav?.setViewSnap("home");
         setFadeOut(true);
       }, 300);
-      setTimeout(() => setTransitioning(false), 800);
+      exitTimeout2.current = window.setTimeout(() => setTransitioning(false), 800);
     }
     prevActive.current = active;
+
+    return () => {
+      if (exitTimeout1.current) clearTimeout(exitTimeout1.current);
+      if (exitTimeout2.current) clearTimeout(exitTimeout2.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
   // Fade out overlay once Artemis data arrives + camera fly-to completes
