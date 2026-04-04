@@ -75,7 +75,7 @@ function computeCameraLanding(
   bodyPos: THREE.Vector3,
   bodyRadius: number
 ): THREE.Vector3 {
-  const dist = Math.max(bodyRadius * 4, 5);
+  const dist = Math.max(bodyRadius * 4, bodyRadius < 0.1 ? bodyRadius * 8 : 5);
 
   const len = bodyPos.length();
   if (len < 0.01) {

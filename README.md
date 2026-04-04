@@ -1,51 +1,49 @@
-# 🌌 Universe Map
+# Universe Map
 
-**Universe Map** is an interactive 3D project that aims to visualize the known universe — starting from our Solar System.
+An interactive 3D visualization of our Solar System and the Milky Way galaxy, with real scale distances and proportions. Built to offer an educational and illustrative experience of the cosmos we live in.
 
-![Universe Map Preview](./public/preview.png)
+**[universe.matteobeu.com](https://universe.matteobeu.com)**
 
-## 🚀 About the Project
+## Features
 
-Universe Map is a long-term personal project focused on building a realistic, explorable 3D map of space using real astronomical data.
+- **Solar System** — All 8 planets, Earth's Moon, Phobos and Deimos with accurate positions from NASA JPL Horizons
+- **Milky Way** — 150,000 star point cloud with procedural spiral arm structure
+- **Real Scale Mode** — Toggle between compressed (logarithmic) and true-to-life distances
+- **Live Mission Tracking** — Real-time spacecraft tracking with telemetry, 3D models, and mission HUD (currently featuring NASA's Artemis II)
+- **Orbit Trajectories** — Rendered from actual ephemeris data
+- **Planet Details** — Explore panel with stats, atmosphere composition, and navigation through the celestial hierarchy
+- **Accurate Rotation** — Axial tilts from IAU pole coordinates, real-time spin rates, Earth ERA formula
+- **Day/Night Cycle** — Earth with day map, night lights, and cloud layer
 
-Currently, it features a detailed and animated model of the **Solar System**, including accurate scales, axial tilts, and textures.
+## Tech Stack
 
-🔭 In future updates, the project will include **all nearby stars**, based on actual scientific data.
+- **React 19** + **TypeScript** + **Vite**
+- **Three.js** via React Three Fiber + Drei
+- **Tailwind CSS v4**
+- **NASA JPL Horizons** — Ephemeris and trajectory data
 
-> I work on this project whenever I find the time — it's a labor of love, driven by my fascination with space and 3D visualization.
+Client-side only, no backend.
 
----
-
-## 🌐 Live Demo
-
-You can explore the project live at:  
-🔭 **[universe.matteobeu.com](https://universe.matteobeu.com)**
-
----
-
-## 🧪 Tech Stack
-
-- **[Three.js](https://threejs.org/)** – WebGL 3D rendering
-- **[React](https://reactjs.org/)** – Frontend architecture
-- **[TypeScript](https://www.typescriptlang.org/)** – Type safety and scalability
-- **[Vite](https://vitejs.dev/)** – Lightning-fast development tooling
-
----
-
-## 💻 Running Locally
+## Running Locally
 
 ```bash
-git clone https://github.com/your-username/universe_map.git
-cd universe_map
+git clone https://github.com/matteo4884/universe-map.git
+cd universe-map
 npm install
 npm run dev
 ```
 
-Then open http://localhost:5173 in your browser.
+Open http://localhost:5317
 
----
+### Updating Data
 
-## 👤 Author
+```bash
+node scripts/fetch-ephemeris.mjs    # Planet positions and orbits
+node scripts/fetch-artemis.mjs      # Artemis II live tracking data
+```
 
-Created with passion by **Matteo Beu**  
-🔗 [matteobeu.com](https://matteobeu.com)
+## Author
+
+Created by **[Matteo Beu](https://matteobeu.com)**
+
+Data: NASA JPL Horizons | Engine: Three.js + React Three Fiber
