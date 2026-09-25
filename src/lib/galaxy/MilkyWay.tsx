@@ -33,7 +33,7 @@ const fragmentShader = `
     float d = length(gl_PointCoord - vec2(0.5));
     if (d > 0.5) discard;
     float alpha = 1.0 - smoothstep(0.1, 0.5, d);
-    gl_FragColor = vec4(vColor, alpha * vAlpha * 0.25);
+    gl_FragColor = vec4(vColor, alpha * vAlpha * 0.3);
   }
 `;
 
@@ -101,7 +101,7 @@ export default function MilkyWay() {
             className="font-mono pointer-events-auto cursor-pointer noselect flex flex-col items-center gap-1.5"
             onClick={handleSunClick}
           >
-            <div className="text-[9px] tracking-[3px] text-[rgba(255,255,255,0.5)] uppercase hover:text-white transition-colors">
+            <div className="text-[11px] tracking-[3px] text-white/70 uppercase whitespace-nowrap hover:text-white transition-colors">
               Solar System
             </div>
             <div className="w-[3px] h-[3px] rounded-full bg-[#ffdd66] shadow-[0_0_4px_#ffcc44,0_0_10px_rgba(255,200,50,0.5),0_0_20px_rgba(255,170,0,0.2)]" />

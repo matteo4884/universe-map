@@ -1,194 +1,95 @@
 import { useContext } from "react";
-import { CelestialBody } from "../../data";
+import { CelestialBody, BodyCategory } from "../../data";
 import { FaEye } from "react-icons/fa";
-import { CameraNavigationContext } from "../../context/contexts";
+import { SelectionContext, EphemerisContext } from "../../context/contexts";
+import { useSimTimeSeconds } from "../../hooks/useSimTimeSeconds";
+import { getParent } from "../../helper/bodies";
+import { headlineFacts, bodyStats } from "../../helper/bodyFacts";
+import BodyImage from "./BodyImage";
+import LiveFacts from "./LiveFacts";
 
 interface CelestialDetailProps {
   body: CelestialBody;
-  onSelectChild: (index: number) => void;
-  onGoBack?: () => void;
   /** Called after a camera flight starts (e.g. to close an overlay covering the scene) */
   onFly?: () => void;
 }
 
-export default function CelestialDetail({
-  body,
-  onSelectChild,
-  onGoBack,
-  onFly,
-}: CelestialDetailProps) {
-  const cameraNav = useContext(CameraNavigationContext);
+const GROUP_TITLES: Partial<Record<BodyCategory, string>> = {
+  Star: "Stars",
+  "Terrestrial planet": "Planets",
+  "Gas giant": "Planets",
+  "Ice giant": "Planets",
+  "Dwarf planet": "Dwarf planets",
+  Moon: "Moons",
+  Spacecraft: "Spacecraft",
+  "Asteroid belt": "Regions",
+};
+
+/** Children grouped under a heading per kind, in data order */
+function groupChildren(body: CelestialBody): [string, CelestialBody[]][] {
+  const groups = new Map<string, CelestialBody[]>();
+  for (const child of body.children) {
+    const title = GROUP_TITLES[child.category] ?? child.category;
+    groups.set(title, [...(groups.get(title) ?? []), child]);
+  }
+  return [...groups.entries()];
+}
+
+export default function CelestialDetail({ body, onFly }: CelestialDetailProps) {
+  const { select } = useContext(SelectionContext);
+  const { ephemeris } = useContext(EphemerisContext);
+  const t = useSimTimeSeconds();
+  const parent = getParent(body);
+
+  // Spacecraft only exist from launch: nothing to fly to before that
+  const existsNow = (b: CelestialBody) => b.type !== "spacecraft" || !ephemeris || ephemeris.relative(b, t) !== null;
 
   const flyTo = (target: CelestialBody) => {
-    if (target.type === "galaxy") {
-      cameraNav?.setViewSnap("milkyway");
-    } else {
-      cameraNav?.setFlyTo(target);
-    }
+    select(target, { fly: true });
     onFly?.();
   };
-
-  const typeLabel =
-    body.type === "galaxy"
-      ? "Galaxy"
-      : body.type === "star"
-        ? "Star"
-        : body.type === "planet"
-          ? body.info.atmosphere.length > 0 &&
-            body.info.gravity > 5 &&
-            body.radius > 10000
-            ? "Gas Giant"
-            : "Rocky Planet"
-          : "Moon";
 
   return (
     <div className="flex flex-col gap-4">
       {/* Hero section */}
       <div className="flex gap-4 items-center">
-        {body.image && body.image.length > 0 && (
-          <img
-            key={body.image}
-            src={`/images/${body.image}`}
-            alt={body.name}
-            className="w-28 h-28 object-contain flex-shrink-0"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
-        )}
-        <div>
-          <div className="text-2xl font-bold uppercase tracking-wider">
-            {body.name}
+        <BodyImage body={body} />
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold uppercase tracking-wider leading-tight">{body.name}</h2>
+          <div className="text-[11px] text-white/60 uppercase tracking-[3px] mt-1 mb-3">
+            {body.type === "region" ? "Region" : body.category}
           </div>
-          <div className="text-[10px] text-[#888] uppercase tracking-[3px] mb-3">
-            {typeLabel}
-          </div>
-          <div className="text-xs text-[#aaa] leading-relaxed">
-            {body.type === "galaxy" ? (
-              <>
-                <div>
-                  Diameter: <span className="text-white">100,000 light-years</span>
-                </div>
-                <div>
-                  Mass: <span className="text-white">{body.info.mass}</span>
-                </div>
-                <div>
-                  Type: <span className="text-white">Barred Spiral (SBbc)</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  Radius: <span className="text-white">{body.radius.toLocaleString()} km</span>
-                </div>
-                <div>
-                  Mass: <span className="text-white">{body.info.mass}</span>
-                </div>
-                <div>
-                  Temp: <span className="text-white">{body.info.temperature}°C</span>
-                </div>
-              </>
-            )}
+          <div className="text-[13px] text-white/60 leading-relaxed">
+            {headlineFacts(body).map((f) => (
+              <div key={f.label}>
+                {f.label}: <span className="text-white">{f.value}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="h-px bg-[#ffffff15]" />
+      <div className="h-px bg-white/10" />
 
       {/* Stats grid */}
-      {body.type === "galaxy" ? (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Stars</div>
-            <div className="text-sm font-semibold">100-400 B</div>
+      <dl className="grid grid-cols-3 gap-3">
+        {bodyStats(body).map((s) => (
+          <div key={s.label} className="text-center">
+            <dt className="text-[10px] text-white/55 uppercase tracking-wide">{s.label}</dt>
+            <dd className="text-sm font-semibold">{s.value}</dd>
           </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Age</div>
-            <div className="text-sm font-semibold">13.6 Gyr</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Arms</div>
-            <div className="text-sm font-semibold">4</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Rotation</div>
-            <div className="text-sm font-semibold">225 Myr</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Sun dist.</div>
-            <div className="text-sm font-semibold">26,000 ly</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Speed</div>
-            <div className="text-sm font-semibold">220 km/s</div>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">
-              {body.type === "moon" ? "Orbit" : "Day"}
-            </div>
-            <div className="text-sm font-semibold">{body.info.dayLength}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">
-              {body.type === "moon" ? "Speed" : "Year"}
-            </div>
-            <div className="text-sm font-semibold">
-              {body.type === "moon" ? body.info.orbitalSpeed + " km/s" : body.info.yearLength}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">
-              {body.type === "star" ? "Planets" : body.type === "moon" ? "Radius" : "Moons"}
-            </div>
-            <div className="text-sm font-semibold">
-              {body.type === "moon" ? body.radius.toLocaleString() + " km" : body.children.length}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">Gravity</div>
-            <div className="text-sm font-semibold">{body.info.gravity} m/s²</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] text-[#666] uppercase">
-              {body.type === "moon" ? "Eccentric." : "Tilt"}
-            </div>
-            <div className="text-sm font-semibold">
-              {body.type === "moon" ? body.info.eccentricity : body.info.axialTilt + "°"}
-            </div>
-          </div>
-          {body.type !== "moon" && (
-            <div className="text-center">
-              <div className="text-[9px] text-[#666] uppercase">Rings</div>
-              <div className="text-sm font-semibold">
-                {body.info.rings ? "Yes" : "No"}
-              </div>
-            </div>
-          )}
-          {body.type === "moon" && (
-            <div className="text-center">
-              <div className="text-[9px] text-[#666] uppercase">Mag. Field</div>
-              <div className="text-sm font-semibold">
-                {body.info.magneticField ? "Yes" : "No"}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        ))}
+      </dl>
+
+      <LiveFacts body={body} />
 
       {/* Atmosphere */}
       {body.info.atmosphere.length > 0 && (
         <div>
-          <div className="text-[9px] text-[#666] uppercase tracking-wider mb-2">
-            Atmosphere
-          </div>
+          <div className="text-[10px] text-white/55 uppercase tracking-wider mb-2">Atmosphere</div>
           <div className="flex gap-1.5 flex-wrap">
             {body.info.atmosphere.map((comp) => (
-              <span
-                key={comp}
-                className="bg-[#ffffff12] px-2 py-1 rounded text-[11px]"
-              >
+              <span key={comp} className="bg-white/10 px-2 py-1 rounded text-[12px]">
                 {comp}
               </span>
             ))}
@@ -197,58 +98,58 @@ export default function CelestialDetail({
       )}
 
       {/* Fun fact */}
-      <div className="bg-[#ffffff08] border-l-2 border-[#4a90d9] py-2.5 px-3 rounded-r-lg text-xs text-[#aaa] leading-relaxed">
+      <div className="bg-white/5 border-l-2 border-[#4a90d9] py-2.5 px-3 rounded-r-lg text-[13px] text-white/75 leading-relaxed">
         {body.info.funFact}
       </div>
 
-      {/* Go to button */}
       <button
-        className="w-full py-2.5 bg-[#ffffff15] border border-[#ffffff20] rounded-lg text-[13px] uppercase tracking-[2px] cursor-pointer hover:bg-[#ffffff25] transition-colors"
+        className="w-full py-3 bg-white/10 border border-white/15 rounded-lg text-[13px] uppercase tracking-[2px] cursor-pointer hover:bg-white/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/10"
+        disabled={!existsNow(body)}
         onClick={() => flyTo(body)}
       >
-        Go to {body.name} →
+        {existsNow(body) ? `Go to ${body.name} →` : "Not launched yet at this date"}
       </button>
 
-      {/* Children list */}
-      {body.children.length > 0 && (
-        <div>
-          <div className="text-[9px] text-[#666] uppercase tracking-wider mb-2">
-            {body.type === "galaxy" ? "Stars" : body.type === "star" ? "Planets" : "Moons"}
-          </div>
-          <div>
-            {body.children.map((child, index) => (
-              <div
+      {/* Children, grouped by kind */}
+      {groupChildren(body).map(([title, children]) => (
+        <div key={title}>
+          <div className="text-[10px] text-white/55 uppercase tracking-wider mb-2">{title}</div>
+          <ul>
+            {children.map((child) => (
+              <li
                 key={child.id}
-                className="first:border-t border-b border-[#ffffff1e] flex justify-between items-center hover:bg-[#ffffff08] transition-colors rounded"
+                className="first:border-t border-b border-white/10 flex justify-between items-center hover:bg-white/5 transition-colors rounded"
               >
                 <button
                   type="button"
-                  className="flex-1 py-2 text-left uppercase text-sm font-bold cursor-pointer"
-                  onClick={() => onSelectChild(index)}
+                  className="flex-1 py-2.5 text-left uppercase text-sm font-bold cursor-pointer flex items-center gap-2"
+                  onClick={() => select(child)}
                 >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: child.color }} aria-hidden="true" />
                   {child.name}
                 </button>
                 <button
                   type="button"
                   aria-label={`Fly to ${child.name}`}
-                  className="py-2 pl-2 hover:opacity-70 cursor-pointer"
+                  title={existsNow(child) ? `Fly to ${child.name}` : "Not launched yet at this date"}
+                  disabled={!existsNow(child)}
+                  className="py-2.5 pl-3 text-white/70 hover:text-white cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                   onClick={() => flyTo(child)}
                 >
                   <FaEye className="text-sm" />
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
-      )}
+      ))}
 
-      {/* Back button */}
-      {onGoBack && (
+      {parent && (
         <button
-          className="w-full py-2 text-[12px] text-[#888] uppercase tracking-[2px] cursor-pointer hover:text-white transition-colors"
-          onClick={onGoBack}
+          className="w-full py-2 text-[12px] text-white/60 uppercase tracking-[2px] cursor-pointer hover:text-white transition-colors"
+          onClick={() => select(parent)}
         >
-          ← Back
+          ← {parent.name}
         </button>
       )}
     </div>

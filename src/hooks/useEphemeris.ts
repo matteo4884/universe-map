@@ -1,62 +1,31 @@
-import { useState, useEffect, useMemo } from "react";
-import { loadEphemeris, EphemerisData, TrajectoryData } from "../services/horizons";
+import { useState, useEffect } from "react";
+import { loadOrbits } from "../services/orbits";
+import { createEphemeris } from "../helper/ephemeris";
+import { EphemerisContextType } from "../context/contexts";
 
-export interface UseEphemerisResult {
-  positions: EphemerisData | null;
-  trajectories: TrajectoryData | null;
-  loading: boolean;
-  error: boolean;
-  loadedAt: string | null;
-}
-
-export function useEphemeris(): UseEphemerisResult {
-  const [positions, setPositions] = useState<EphemerisData | null>(null);
-  const [trajectories, setTrajectories] = useState<TrajectoryData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [loadedAt, setLoadedAt] = useState<string | null>(null);
+/** Loads orbits.json once and builds the position model */
+export function useEphemeris(): EphemerisContextType {
+  const [state, setState] = useState<EphemerisContextType>({
+    ephemeris: null,
+    loading: true,
+    error: false,
+  });
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      try {
-        const data = await loadEphemeris();
-
-        if (cancelled) return;
-
-        if (data && Object.keys(data.positions).length > 0) {
-          setPositions(data.positions);
-          setTrajectories(data.trajectories);
-          setLoadedAt(data.fetchedAt);
-          console.log(
-            `[Ephemeris] Loaded ${Object.keys(data.positions).length} positions, ` +
-            `${Object.keys(data.trajectories).length} trajectories ` +
-            `(fetched at ${data.fetchedAt})`
-          );
-        } else {
-          console.warn("[Ephemeris] No data in ephemeris.json, using fallback");
-          setError(true);
-        }
-      } catch {
-        if (!cancelled) {
-          console.error("[Ephemeris] Failed to load ephemeris.json");
-          setError(true);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+    loadOrbits().then((data) => {
+      if (cancelled) return;
+      if (data && Object.keys(data.elements).length > 0) {
+        setState({ ephemeris: createEphemeris(data), loading: false, error: false });
+      } else {
+        console.warn("[Ephemeris] orbits.json unavailable, using fallback positions");
+        setState({ ephemeris: null, loading: false, error: true });
       }
-    }
-
-    load();
-
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return useMemo(
-    () => ({ positions, trajectories, loading, error, loadedAt }),
-    [positions, trajectories, loading, error, loadedAt]
-  );
+  return state;
 }

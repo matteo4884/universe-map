@@ -19,6 +19,10 @@ export interface MissionConfig {
   youtubeVideoId: string;
   phases: MissionPhase[];
   queryParam: string;
+  /** Crewed vehicle tracked in the scene */
+  spacecraftName: string;
+  /** 3D models: true scale, and an enlarged one that stays visible */
+  models: { real: string; enhanced: string };
 }
 
 export const ARTEMIS_2: MissionConfig = {
@@ -43,6 +47,8 @@ export const ARTEMIS_2: MissionConfig = {
     { name: "ENTRY & SPLASHDOWN", startMET: 820000 },
   ],
   queryParam: "artemis",
+  spacecraftName: "Orion",
+  models: { real: "/models/orion.glb", enhanced: "/models/orion-cad.glb" },
 };
 
 export function getActiveMission(): MissionConfig | null {

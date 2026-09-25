@@ -78,11 +78,14 @@ export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
               </div>
             </div>
 
-            <div className="text-[11px] tracking-[6px] uppercase font-light opacity-80 mb-3">
+            <div className="text-[12px] tracking-[6px] uppercase font-light opacity-80 mb-3">
               Universe Map
             </div>
-            <div className="text-[9px] tracking-[3px] uppercase text-[rgba(255,255,255,0.3)] loading-pulse">
+            <div className="text-[10px] tracking-[3px] uppercase text-white/50 loading-pulse">
               Loading Solar System
+            </div>
+            <div className="mt-4 mx-auto w-32 h-[2px] bg-white/10 rounded overflow-hidden" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full bg-white/60 transition-[width] duration-300" style={{ width: `${loading ? 5 : Math.max(5, progress)}%` }} />
             </div>
           </div>
 

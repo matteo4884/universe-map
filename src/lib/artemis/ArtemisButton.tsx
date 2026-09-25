@@ -7,15 +7,15 @@ export default function ArtemisButton() {
   if (!mission || active) return null;
 
   return (
-    <div className="fixed z-[999999999] bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2">
+    <div className="fixed z-[999999999] top-14 sm:top-4 left-1/2 -translate-x-1/2">
       {/* Soft ambient glow from below screen edge */}
       <div
         className="fixed left-1/2 -translate-x-1/2 pointer-events-none"
         style={{
-          bottom: "-100px",
+          top: "-160px",
           width: "700px",
           height: "300px",
-          background: "radial-gradient(ellipse at center 85%, rgba(255,140,0,0.3) 0%, rgba(255,100,0,0.15) 30%, rgba(255,80,0,0.05) 60%, transparent 80%)",
+          background: "radial-gradient(ellipse at center 15%, rgba(255,140,0,0.3) 0%, rgba(255,100,0,0.15) 30%, rgba(255,80,0,0.05) 60%, transparent 80%)",
         }}
       />
       <div className="relative">

@@ -2,7 +2,7 @@ import { createContext } from "react";
 import { CelestialBody } from "../data";
 import { MissionConfig } from "../config/missions";
 import { ArtemisPoint } from "../services/artemisLive";
-import { EphemerisPoint } from "../services/horizons";
+import { Ephemeris } from "../helper/ephemeris";
 
 export type ScaleContextType = {
   realisticMode: boolean;
@@ -16,6 +16,49 @@ export const ScaleContext = createContext<ScaleContextType | undefined>(
   undefined
 );
 
+export type TimeContextType = {
+  /** Simulated time (ms since Unix epoch), the same for everything drawn in a frame */
+  getTime: () => number;
+  /** Freeze the time for the frame about to be drawn (called by <SimClock> first thing each frame) */
+  tick: () => void;
+  /** Simulated seconds per real second (1 = real time, negative = backwards) */
+  rate: number;
+  paused: boolean;
+  /** Following the real clock (rate 1 from "now") */
+  live: boolean;
+  setRate: (rate: number) => void;
+  setPaused: (paused: boolean) => void;
+  setTime: (ms: number) => void;
+  goLive: () => void;
+};
+
+export const TimeContext = createContext<TimeContextType | undefined>(undefined);
+
+export type EphemerisContextType = {
+  ephemeris: Ephemeris | null;
+  loading: boolean;
+  error: boolean;
+};
+
+export const EphemerisContext = createContext<EphemerisContextType>({
+  ephemeris: null,
+  loading: true,
+  error: false,
+});
+
+export type Layer = "orbits" | "spacecraft" | "belt" | "labels";
+
+export type LayersContextType = {
+  /** What's drawn in the scene, toggled from the "Show" filters */
+  layers: Record<Layer, boolean>;
+  setLayer: (layer: Layer, visible: boolean) => void;
+};
+
+export const LayersContext = createContext<LayersContextType>({
+  layers: { orbits: true, spacecraft: true, belt: true, labels: true },
+  setLayer: () => {},
+});
+
 export type ViewDirection = "top" | "front" | "home" | "milkyway" | null;
 
 export type CameraNavigationContextType = {
@@ -28,6 +71,28 @@ export type CameraNavigationContextType = {
 export const CameraNavigationContext = createContext<
   CameraNavigationContextType | undefined
 >(undefined);
+
+export type SelectOptions = {
+  /** Also fly the camera to the body */
+  fly?: boolean;
+  /** Open the explore panel (default true) */
+  openPanel?: boolean;
+};
+
+export type SelectionContextType = {
+  /** Selected body, reflected in the URL (?body=…); null = nothing selected */
+  selected: CelestialBody | null;
+  select: (body: CelestialBody | null, options?: SelectOptions) => void;
+  panelOpen: boolean;
+  setPanelOpen: (open: boolean) => void;
+};
+
+export const SelectionContext = createContext<SelectionContextType>({
+  selected: null,
+  select: () => {},
+  panelOpen: false,
+  setPanelOpen: () => {},
+});
 
 export interface Telemetry {
   distEarth: number;
@@ -52,8 +117,6 @@ export interface ArtemisModeContextType {
   telemetry: Telemetry | null;
   fetchedAt: string | null;
   dataOnline: boolean;
-  earthOverride: EphemerisPoint | null;
-  moonOverride: EphemerisPoint | null;
   cameraTarget: ArtemisCameraTarget;
   setCameraTarget: (target: ArtemisCameraTarget) => void;
   orionEnhanced: boolean;
@@ -72,8 +135,6 @@ export const ArtemisModeContext = createContext<ArtemisModeContextType>({
   telemetry: null,
   fetchedAt: null,
   dataOnline: false,
-  earthOverride: null,
-  moonOverride: null,
   cameraTarget: null,
   setCameraTarget: () => {},
   orionEnhanced: false,

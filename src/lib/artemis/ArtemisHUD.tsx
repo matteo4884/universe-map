@@ -19,11 +19,11 @@ function formatKm(km: number): string {
   return Math.round(km).toLocaleString() + " km";
 }
 
-const BODY_LABELS: Record<Exclude<ArtemisCameraTarget, null>, string> = {
-  earth: "🌍 Earth",
-  orion: "🚀 Orion",
-  moon: "🌙 Moon",
-};
+function bodyLabel(body: Exclude<ArtemisCameraTarget, null>, mission: MissionConfig): string {
+  if (body === "earth") return "🌍 Earth";
+  if (body === "moon") return "🌙 Moon";
+  return `🚀 ${mission.spacecraftName}`;
+}
 
 /** Mission progress bar, from day 1 to splashdown */
 function MissionTimeline({ mission, met, className }: { mission: MissionConfig; met: number; className: string }) {
@@ -166,7 +166,7 @@ export default function ArtemisHUD() {
                   : "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white"
               }`}
             >
-              {BODY_LABELS[body]}
+              {bodyLabel(body, mission)}
               {cameraLocked === body && " 🎯"}
             </button>
           ))}
@@ -185,7 +185,7 @@ export default function ArtemisHUD() {
               : "border-[#00ff88] bg-[rgba(0,255,136,0.1)] text-[#00ff88]"
           }`}
         >
-          {orionEnhanced ? "Switch to Real Scale Orion →" : "✓ Real Scale Orion — Switch to Enhanced"}
+          {orionEnhanced ? `Switch to Real Scale ${mission.spacecraftName} →` : `✓ Real Scale ${mission.spacecraftName} — Switch to Enhanced`}
         </button>
         {telemetry && <MissionTimeline mission={mission} met={telemetry.met} className="w-40" />}
       </div>
@@ -252,7 +252,7 @@ export default function ArtemisHUD() {
                   : "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.6)]"
               }`}
             >
-              {BODY_LABELS[body]}
+              {bodyLabel(body, mission)}
               {cameraLocked === body && " 🎯"}
             </button>
           ))}
@@ -369,7 +369,7 @@ export default function ArtemisHUD() {
               You are about to switch to real scale.
             </div>
             <div className="text-[11px] text-[rgba(255,255,255,0.5)] leading-relaxed mb-4 space-y-2">
-              <p>The Orion spacecraft is <span className="text-white">~5 meters</span> wide and <span className="text-white">~10 meters</span> tall.</p>
+              <p>The {mission.spacecraftName} spacecraft is <span className="text-white">~5 meters</span> wide and <span className="text-white">~10 meters</span> tall.</p>
               <p>The current enhanced model is displayed at <span className="text-white">~130 km</span> for visibility.</p>
               <p className="text-[#ff6b35]">Due to the astronomical difference in scale, the real-size model will have visual artifacts (z-fighting) caused by hardware precision limits of WebGL.</p>
             </div>

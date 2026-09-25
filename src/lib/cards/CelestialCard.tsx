@@ -1,106 +1,75 @@
-import { useState, useEffect } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { CelestialBody } from "../../data";
+import { SelectionContext } from "../../context/contexts";
+import { breadcrumb, SUN } from "../../helper/bodies";
 import CelestialDetail from "./CelestialDetail";
 import Breadcrumb from "./Breadcrumb";
 import ExploreTab from "./ExploreTab";
-import { findPathToBody, getBodyAtPath, getBreadcrumb } from "./bodyTree";
 
-interface CelestialCardProps {
-  root: CelestialBody;
-  open: boolean;
-  onToggle: () => void;
-  navigateToId?: number | null;
-}
+/** Desktop side panel showing the selected body (the Sun when nothing is selected) */
+export default function CelestialCard() {
+  const { selected, select, panelOpen, setPanelOpen } = useContext(SelectionContext);
+  const target = selected ?? SUN;
 
-export default function CelestialCard({ root, open, onToggle, navigateToId }: CelestialCardProps) {
-  const [path, setPath] = useState<number[]>([]);
-  const [direction, setDirection] = useState<"left" | "right">("left");
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [displayPath, setDisplayPath] = useState<number[]>([]);
-
-  // Navigate to a specific body when navigateToId is set
-  useEffect(() => {
-    if (navigateToId == null) return;
-    const targetPath = findPathToBody(root, navigateToId);
-    if (targetPath) {
-      setPath(targetPath);
-      setDisplayPath(targetPath);
-    }
-  }, [navigateToId, root]);
-
-  const body = getBodyAtPath(root, displayPath);
-  const breadcrumb = getBreadcrumb(root, displayPath);
+  // Slide out the old body, then slide the new one in from the side of travel
+  const [shown, setShown] = useState<CelestialBody>(target);
+  const [phase, setPhase] = useState<"idle" | "out">("idle");
+  const [direction, setDirection] = useState<"deeper" | "up">("deeper");
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (JSON.stringify(path) === JSON.stringify(displayPath)) return;
-    setIsTransitioning(true);
+    if (target.id === shown.id) return;
+    setDirection(breadcrumb(target).length >= breadcrumb(shown).length ? "deeper" : "up");
+    setPhase("out");
     const timer = setTimeout(() => {
-      setDisplayPath(path);
-      setIsTransitioning(false);
-    }, 300);
+      setShown(target);
+      setPhase("idle");
+      scrollRef.current?.scrollTo({ top: 0 });
+    }, 250);
     return () => clearTimeout(timer);
-  }, [path, displayPath]);
+  }, [target, shown]);
 
-  const navigateTo = (newPath: number[]) => {
-    if (newPath.length > displayPath.length) {
-      setDirection("left");
-    } else {
-      setDirection("right");
-    }
-    setPath(newPath);
-  };
-
-  const handleSelectChild = (index: number) => {
-    navigateTo([...displayPath, index]);
-  };
-
-  const slideClass = isTransitioning
-    ? direction === "left"
-      ? "-translate-x-full opacity-0"
-      : "translate-x-full opacity-0"
-    : "translate-x-0 opacity-100";
+  const slideClass =
+    phase === "out"
+      ? direction === "deeper"
+        ? "-translate-x-full opacity-0"
+        : "translate-x-full opacity-0"
+      : "translate-x-0 opacity-100";
 
   return (
     <div
       className={`fixed z-[999999999] sm:block hidden duration-500 top-0 right-0 h-screen ${
-        open ? "translate-x-0" : "translate-x-full"
+        panelOpen ? "translate-x-0" : "translate-x-full"
       }`}
     >
-      <div
-        className="h-full w-[380px] bg-[#000000b3] bg-blur-custom p-6 overflow-y-auto custom-scrollbar text-white"
-        inert={!open}
+      <aside
+        ref={scrollRef}
+        aria-label={`${shown.name} details`}
+        className="h-full w-[380px] bg-black/70 bg-blur-custom p-6 pb-28 overflow-y-auto custom-scrollbar text-white"
+        inert={!panelOpen}
       >
-        <Breadcrumb crumbs={breadcrumb} onNavigate={navigateTo} />
-
-        {/* Content with transitions */}
+        <Breadcrumb crumbs={breadcrumb(shown)} onNavigate={(body) => select(body)} />
         <div className="overflow-hidden">
-          <div className={`transition-all duration-300 ease-in-out ${slideClass}`}>
-            <CelestialDetail
-              body={body}
-              onSelectChild={handleSelectChild}
-              onGoBack={
-                displayPath.length > 0
-                  ? () => navigateTo(displayPath.slice(0, -1))
-                  : undefined
-              }
-            />
+          <div className={`transition-all duration-200 ease-in-out ${slideClass}`}>
+            <CelestialDetail body={shown} />
           </div>
         </div>
-      </div>
+      </aside>
 
       {/* Toggle tab */}
       <div className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full">
-        {open ? (
+        {panelOpen ? (
           <button
             type="button"
             aria-label="Close explore panel"
-            className="bg-[#000000b3] bg-blur-custom text-white text-[11px] uppercase tracking-[2px] py-3 px-2 rounded-l-lg writing-vertical hover:bg-[#ffffff25] transition-colors border border-r-0 border-[#ffffff15] cursor-pointer"
-            onClick={onToggle}
+            title="Close  Esc"
+            className="bg-black/70 bg-blur-custom text-white text-[12px] py-3 px-2.5 rounded-l-lg hover:bg-white/15 transition-colors border border-r-0 border-white/10 cursor-pointer"
+            onClick={() => setPanelOpen(false)}
           >
             ✕
           </button>
         ) : (
-          <ExploreTab onClick={onToggle} />
+          <ExploreTab onClick={() => setPanelOpen(true)} />
         )}
       </div>
     </div>

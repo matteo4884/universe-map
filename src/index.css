@@ -99,3 +99,25 @@ body {
   box-shadow: 0 0 4px #4a90d9, 0 0 8px rgba(74,144,217,0.4);
   animation: explore-star-fall linear infinite;
 }
+
+/* Onboarding hint */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.onboarding-fade {
+  animation: fade-in 0.6s ease-out;
+}
+
+/* Respect "reduce motion": no decorative loops (camera flights are shortened in CameraRig) */
+@media (prefers-reduced-motion: reduce) {
+  .explore-star,
+  .artemis-star {
+    display: none;
+  }
+  .loading-pulse,
+  .onboarding-fade,
+  [style*="spin-360"] {
+    animation: none !important;
+  }
+}

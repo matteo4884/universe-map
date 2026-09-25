@@ -11,16 +11,10 @@ const ENHANCED_SCALE = 0.002; // ~130km — visible without z-fighting
 const _forward = new THREE.Vector3();
 const _worldPos = new THREE.Vector3();
 
-function OrionModelSimple() {
-  const { scene } = useGLTF("/models/orion.glb");
+function SpacecraftModel({ path, scale }: { path: string; scale: number }) {
+  const { scene } = useGLTF(path);
   const clone = useMemo(() => scene.clone(), [scene]);
-  return <primitive object={clone} scale={[REAL_SCALE, REAL_SCALE, REAL_SCALE]} />;
-}
-
-function OrionModelCAD() {
-  const { scene } = useGLTF("/models/orion-cad.glb");
-  const clone = useMemo(() => scene.clone(), [scene]);
-  return <primitive object={clone} scale={[ENHANCED_SCALE, ENHANCED_SCALE, ENHANCED_SCALE]} />;
+  return <primitive object={clone} scale={[scale, scale, scale]} />;
 }
 
 function OrionPlaceholder() {
@@ -32,8 +26,9 @@ function OrionPlaceholder() {
   );
 }
 
+/** The mission's crewed spacecraft, at its live position (realistic scale) */
 export default function OrionSpacecraft() {
-  const { active, hasPosition, getSpacecraftPosition, orionEnhanced } = useContext(ArtemisModeContext);
+  const { mission, active, hasPosition, getSpacecraftPosition, orionEnhanced } = useContext(ArtemisModeContext);
   const posRef = useRef<THREE.Group>(null);
   const rotRef = useRef<THREE.Group>(null);
 
@@ -53,21 +48,25 @@ export default function OrionSpacecraft() {
     }
   });
 
-  if (!active || !hasPosition) return null;
+  if (!active || !hasPosition || !mission) return null;
 
   return (
     <group ref={posRef}>
       <group ref={rotRef}>
         <group rotation={[-Math.PI / 2, Math.PI / 2, 0]}>
           <Suspense fallback={<OrionPlaceholder />}>
-            {orionEnhanced ? <OrionModelCAD /> : <OrionModelSimple />}
+            {orionEnhanced ? (
+              <SpacecraftModel path={mission.models.enhanced} scale={ENHANCED_SCALE} />
+            ) : (
+              <SpacecraftModel path={mission.models.real} scale={REAL_SCALE} />
+            )}
           </Suspense>
         </group>
       </group>
 
       <Html center className="pointer-events-none noselect" position={[0, 0, orionEnhanced ? 0.02 : 0.000002]}>
         <div className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.6)] uppercase font-mono whitespace-nowrap">
-          ORION
+          {mission.spacecraftName}
         </div>
       </Html>
     </group>

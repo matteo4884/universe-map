@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { getActiveMission } from "../config/missions";
 import { fetchArtemisLive, interpolateSpacecraft, ArtemisPoint, ArtemisLiveData } from "../services/artemisLive";
-import { EphemerisPoint } from "../services/horizons";
 import { ArtemisModeContext, ArtemisCameraTarget, Telemetry } from "./contexts";
 
 const POLL_INTERVAL = 5 * 60 * 1000;
@@ -37,8 +36,6 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
   const [cameraLocked, setCameraLocked] = useState<ArtemisCameraTarget>(null);
   const liveDataRef = useRef<ArtemisLiveData | null>(null);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
-  const [earthOverride, setEarthOverride] = useState<EphemerisPoint | null>(null);
-  const [moonOverride, setMoonOverride] = useState<EphemerisPoint | null>(null);
 
   // Check URL param on mount
   useEffect(() => {
@@ -62,8 +59,6 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     setActive(false);
     setFetchedAt(null);
     setTelemetry(null);
-    setEarthOverride(null);
-    setMoonOverride(null);
     setCameraLocked(null);
     liveDataRef.current = null;
     const url = new URL(window.location.href);
@@ -78,7 +73,7 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     []
   );
 
-  // HUD-only values (Earth/Moon positions, telemetry, online status) — 1/sec
+  // HUD-only values (telemetry, online status) — 1/sec
   const updateUI = useCallback(() => {
     const data = liveDataRef.current;
     if (!data || !mission) {
@@ -91,8 +86,6 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
     const earthPos = interpolateBody(data, "earth");
     const moonPos = interpolateBody(data, "moon");
     if (!earthPos || !moonPos) return;
-    setEarthOverride(earthPos);
-    setMoonOverride(moonPos);
 
     const dx = pos.x - earthPos.x, dy = pos.y - earthPos.y, dz = pos.z - earthPos.z;
     const distEarth = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -151,14 +144,14 @@ export function ArtemisModeProvider({ children }: { children: React.ReactNode })
       mission, active, activate, deactivate,
       hasPosition: fetchedAt !== null,
       getSpacecraftPosition, telemetry,
-      fetchedAt, dataOnline, earthOverride, moonOverride,
+      fetchedAt, dataOnline,
       cameraTarget, setCameraTarget,
       orionEnhanced, setOrionEnhanced,
       cameraLocked, setCameraLocked,
     }),
     [
       mission, active, activate, deactivate, getSpacecraftPosition, telemetry,
-      fetchedAt, dataOnline, earthOverride, moonOverride,
+      fetchedAt, dataOnline,
       cameraTarget, orionEnhanced, cameraLocked,
     ]
   );

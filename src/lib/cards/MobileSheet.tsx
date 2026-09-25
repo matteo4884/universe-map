@@ -1,86 +1,91 @@
-import { useState, useEffect } from "react";
+import { useContext, useRef, useState } from "react";
 import { MdClose } from "react-icons/md";
-import { CelestialBody } from "../../data";
+import { SelectionContext } from "../../context/contexts";
+import { breadcrumb, SUN } from "../../helper/bodies";
 import CelestialDetail from "./CelestialDetail";
 import Breadcrumb from "./Breadcrumb";
 import ExploreTab from "./ExploreTab";
-import { findPathToBody, getBodyAtPath, getBreadcrumb } from "./bodyTree";
 
-interface MobileSheetProps {
-  root: CelestialBody;
-  navigateToId?: number | null;
-}
+const CLOSE_DRAG_PX = 90;
 
-export default function MobileSheet({ root, navigateToId }: MobileSheetProps) {
-  const [open, setOpen] = useState(false);
-  const [path, setPath] = useState<number[]>([]);
+/** Mobile bottom sheet with the selected body; drag the handle down to close */
+export default function MobileSheet() {
+  const { selected, select, panelOpen, setPanelOpen } = useContext(SelectionContext);
+  const body = selected ?? SUN;
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Navigate to a specific body when navigateToId is set
-  useEffect(() => {
-    if (navigateToId == null) return;
-    const targetPath = findPathToBody(root, navigateToId);
-    if (targetPath) {
-      setPath(targetPath);
-      setOpen(true);
-    }
-  }, [navigateToId, root]);
-
-  const body = getBodyAtPath(root, path);
-  const breadcrumb = getBreadcrumb(root, path);
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragStart.current = e.clientY;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (dragStart.current === null) return;
+    setDragY(Math.max(0, e.clientY - dragStart.current));
+  };
+  const onPointerUp = () => {
+    if (dragStart.current === null) return;
+    if (dragY > CLOSE_DRAG_PX) setPanelOpen(false);
+    dragStart.current = null;
+    setDragging(false);
+    setDragY(0);
+  };
 
   return (
     <>
-      {/* Explore tab — same animated style as desktop */}
-      {!open && (
+      {!panelOpen && (
         <div className="fixed z-[999999999] sm:hidden top-1/2 -translate-y-1/2 right-0">
-          <ExploreTab onClick={() => setOpen(true)} compact />
+          <ExploreTab onClick={() => setPanelOpen(true)} compact />
         </div>
       )}
 
-      {/* Overlay */}
-      {open && (
+      {panelOpen && (
         <div
-          className="fixed inset-0 z-[999999999] sm:hidden bg-[#00000080]"
-          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-[999999999] sm:hidden bg-black/50"
+          onClick={() => setPanelOpen(false)}
         />
       )}
 
-      {/* Bottom sheet */}
       <div
-        className={`fixed z-[9999999999] sm:hidden bottom-0 left-0 right-0 bg-[#000000b3] bg-blur-custom rounded-t-2xl transition-transform duration-300 ease-in-out ${
-          open ? "translate-y-0" : "translate-y-full"
+        role="dialog"
+        aria-label={`${body.name} details`}
+        className={`fixed z-[9999999999] sm:hidden bottom-0 left-0 right-0 bg-black/80 bg-blur-custom rounded-t-2xl ${
+          dragging ? "" : "transition-transform duration-300 ease-in-out"
         }`}
-        style={{ height: "70vh" }}
-        inert={!open}
+        style={{
+          height: "75vh",
+          transform: panelOpen ? `translateY(${dragY}px)` : "translateY(100%)",
+        }}
+        inert={!panelOpen}
       >
-        {/* Handle bar */}
-        <div className="flex justify-center py-3">
-          <div className="w-10 h-1 bg-[#ffffff30] rounded-full" />
+        {/* Drag handle */}
+        <div
+          className="flex justify-center py-3 touch-none cursor-grab"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        >
+          <div className="w-12 h-1.5 bg-white/30 rounded-full" />
         </div>
 
-        {/* Close button */}
         <button
           aria-label="Close explore panel"
-          className="absolute top-3 right-4 text-white opacity-60 hover:opacity-100"
-          onClick={() => setOpen(false)}
+          className="absolute top-1.5 right-2 w-11 h-11 flex items-center justify-center text-white/70 hover:text-white"
+          onClick={() => setPanelOpen(false)}
         >
-          <MdClose size={20} />
+          <MdClose size={22} />
         </button>
 
-        {/* Content */}
-        <div className="px-5 pb-6 overflow-y-auto custom-scrollbar text-white" style={{ height: "calc(70vh - 48px)" }}>
-          <Breadcrumb crumbs={breadcrumb} onNavigate={setPath} />
-
+        <div ref={scrollRef} className="px-5 pb-24 overflow-y-auto custom-scrollbar text-white" style={{ height: "calc(75vh - 48px)" }}>
+          <Breadcrumb crumbs={breadcrumb(body)} onNavigate={(b) => select(b)} />
           <CelestialDetail
             body={body}
-            onSelectChild={(index) => setPath([...path, index])}
-            onGoBack={
-              path.length > 0
-                ? () => setPath(path.slice(0, -1))
-                : undefined
-            }
             // The sheet covers most of the screen: close it so the camera flight is visible
-            onFly={() => setOpen(false)}
+            onFly={() => setPanelOpen(false)}
           />
         </div>
       </div>

@@ -1,12 +1,40 @@
+/**
+ * Structural role: "planet" = orbits the star (dwarf planets too), "moon" = orbits a planet,
+ * "region" = a zone of many small bodies (asteroid belt)
+ */
+export type BodyType = "galaxy" | "star" | "planet" | "moon" | "spacecraft" | "region";
+
+export type BodyCategory =
+  | "Galaxy"
+  | "Star"
+  | "Terrestrial planet"
+  | "Gas giant"
+  | "Ice giant"
+  | "Dwarf planet"
+  | "Moon"
+  | "Spacecraft"
+  | "Asteroid belt";
+
+export interface Stat {
+  label: string;
+  value: string;
+}
+
 export interface CelestialBody {
   id: number;
-  type: "star" | "planet" | "moon" | "galaxy";
+  type: BodyType;
+  category: BodyCategory;
   name: string;
-  map: string;
-  image: string;
-  radius: number;
-  distanceFromParent: number;
+  map: string; // identifier, also used in the URL (?body=…)
+  texture: string; // sphere texture in /public ("" when not rendered as a sphere)
+  color: string; // marker color when the body is too small to see
+  image: string; // card image in /public/images ("" → texture preview)
+  radius: number; // km
+  distanceFromParent: number; // km, fallback when orbital data is missing
   horizonsId: string;
+  orbitId?: string; // key in orbits.json, defaults to horizonsId (barycenters for giant planets)
+  /** The orbit is the barycenter's: shift by the big moon's pull (Earth–Moon, Pluto–Charon) */
+  barycenter?: { satelliteId: string; massRatio: number };
   info: {
     mass: string;
     gravity: number;
@@ -25,14 +53,41 @@ export interface CelestialBody {
     atmosphere: string[];
     funFact: string;
   };
+  /** Galaxy-only facts */
+  galaxy?: { diameter: string; kind: string; stats: Stat[] };
+  /** Spacecraft-only facts */
+  mission?: { agency: string; launched: string; status: string; stats: Stat[] };
+  /** Region-only facts (asteroid belt) */
+  region?: { headline: Stat[]; stats: Stat[]; innerAU: number; outerAU: number };
   children: CelestialBody[];
+}
+
+/** Bodies without physical stats (spacecraft, regions): only the fun fact is shown */
+function factOnlyInfo(funFact: string): CelestialBody["info"] {
+  return {
+    mass: "",
+    gravity: 0,
+    temperature: 0,
+    dayLength: "",
+    yearLength: "",
+    orbitalSpeed: 0,
+    axialTilt: 0,
+    eccentricity: 0,
+    magneticField: false,
+    rings: false,
+    atmosphere: [],
+    funFact,
+  };
 }
 
 export const SOLAR_SYSTEM: CelestialBody = {
   id: 0,
   type: "star",
   name: "Sun",
-  map: "g",
+  map: "sun",
+  texture: "2k_sun.jpg",
+  category: "Star",
+  color: "#ffcc55",
   image: "sun.webp",
   radius: 696340,
   distanceFromParent: 0,
@@ -61,6 +116,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Mercury",
       map: "mercury",
+      texture: "2k_mercury.jpg",
+      category: "Terrestrial planet",
+      color: "#b8b1a8",
       image: "mercury.webp",
       radius: 2439.7,
       distanceFromParent: 57910000,
@@ -90,6 +148,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Venus",
       map: "venus",
+      texture: "2k_venus_surface.jpg",
+      category: "Terrestrial planet",
+      color: "#e6c98f",
       image: "venus.webp",
       radius: 6051.8,
       distanceFromParent: 108200000,
@@ -119,10 +180,15 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Earth",
       map: "earth",
+      texture: "2k_earth_daymap.jpg",
+      category: "Terrestrial planet",
+      color: "#6fa8ff",
       image: "earth.webp",
       radius: 6371,
       distanceFromParent: 149600000,
       horizonsId: "399",
+      orbitId: "3",
+      barycenter: { satelliteId: "301", massRatio: 0.012150584 },
       info: {
         mass: "5.972 × 10²⁴ kg",
         gravity: 9.81,
@@ -147,6 +213,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Moon",
           map: "moon",
+          texture: "2k_moon.jpg",
+          category: "Moon",
+          color: "#cfcfcf",
           image: "moon.webp",
           radius: 1737,
           distanceFromParent: 384400,
@@ -169,6 +238,31 @@ export const SOLAR_SYSTEM: CelestialBody = {
           },
           children: [],
         },
+        {
+          id: 33,
+          type: "spacecraft",
+          category: "Spacecraft",
+          name: "James Webb",
+          map: "jwst",
+          texture: "",
+          color: "#ffd27a",
+          image: "",
+          radius: 0.01,
+          distanceFromParent: 1500000,
+          horizonsId: "-170",
+          info: factOnlyInfo("The largest space telescope ever launched. It orbits the Sun–Earth L2 point, 1.5 million km from Earth, behind a sunshield the size of a tennis court."),
+          mission: {
+            agency: "NASA · ESA · CSA",
+            launched: "25 Dec 2021",
+            status: "Observing from Sun–Earth L2",
+            stats: [
+              { label: "Mirror", value: "6.5 m" },
+              { label: "Sunshield", value: "21 × 14 m" },
+              { label: "Operating temp", value: "−233 °C" },
+            ],
+          },
+          children: [],
+        },
       ],
     },
     {
@@ -176,10 +270,14 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Mars",
       map: "mars",
+      texture: "2k_mars.jpg",
+      category: "Terrestrial planet",
+      color: "#e0664a",
       image: "mars.webp",
       radius: 3389.5,
       distanceFromParent: 227900000,
       horizonsId: "499",
+      orbitId: "4",
       info: {
         mass: "6.417 × 10²³ kg",
         gravity: 3.72,
@@ -204,6 +302,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Phobos",
           map: "phobos",
+          texture: "2k_phobos.jpg",
+          category: "Moon",
+          color: "#a89a8c",
           image: "",
           radius: 11.267,
           distanceFromParent: 9376,
@@ -229,6 +330,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Deimos",
           map: "deimos",
+          texture: "2k_deimos.jpg",
+          category: "Moon",
+          color: "#b3a596",
           image: "",
           radius: 6.2,
           distanceFromParent: 23463,
@@ -256,10 +360,14 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Jupiter",
       map: "jupiter",
+      texture: "2k_jupiter.jpg",
+      category: "Gas giant",
+      color: "#d9b38c",
       image: "jupiter.webp",
       radius: 69911,
       distanceFromParent: 778500000,
       horizonsId: "599",
+      orbitId: "5",
       info: {
         mass: "1.898 × 10²⁷ kg",
         gravity: 24.79,
@@ -284,6 +392,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Io",
           map: "io",
+          texture: "2k_io.jpg",
+          category: "Moon",
+          color: "#e8d36a",
           image: "io.webp",
           radius: 1821.6,
           distanceFromParent: 421700,
@@ -309,6 +420,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Europa",
           map: "europa",
+          texture: "2k_europa.jpg",
+          category: "Moon",
+          color: "#d9cdb8",
           image: "europa.webp",
           radius: 1560.8,
           distanceFromParent: 671034,
@@ -334,6 +448,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Ganymede",
           map: "ganymede",
+          texture: "2k_ganymede.jpg",
+          category: "Moon",
+          color: "#a89f94",
           image: "ganymede.webp",
           radius: 2634.1,
           distanceFromParent: 1070412,
@@ -359,6 +476,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Callisto",
           map: "callisto",
+          texture: "2k_callisto.jpg",
+          category: "Moon",
+          color: "#8c8278",
           image: "callisto.webp",
           radius: 2410.3,
           distanceFromParent: 1882709,
@@ -386,10 +506,14 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Saturn",
       map: "saturn",
+      texture: "2k_saturn.jpg",
+      category: "Gas giant",
+      color: "#e8d49a",
       image: "saturn.webp",
       radius: 58232,
       distanceFromParent: 1433000000,
       horizonsId: "699",
+      orbitId: "6",
       info: {
         mass: "5.683 × 10²⁶ kg",
         gravity: 10.44,
@@ -414,6 +538,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Titan",
           map: "titan",
+          texture: "2k_titan.jpg",
+          category: "Moon",
+          color: "#e3b865",
           image: "titan.webp",
           radius: 2574.7,
           distanceFromParent: 1221870,
@@ -439,6 +566,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Enceladus",
           map: "enceladus",
+          texture: "2k_enceladus.jpg",
+          category: "Moon",
+          color: "#f2f4f7",
           image: "",
           radius: 252.1,
           distanceFromParent: 237948,
@@ -464,6 +594,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Mimas",
           map: "mimas",
+          texture: "2k_mimas.jpg",
+          category: "Moon",
+          color: "#c8c8c8",
           image: "",
           radius: 198.2,
           distanceFromParent: 185539,
@@ -489,6 +622,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Rhea",
           map: "rhea",
+          texture: "2k_rhea.jpg",
+          category: "Moon",
+          color: "#d0ccc6",
           image: "",
           radius: 763.8,
           distanceFromParent: 527108,
@@ -514,6 +650,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Iapetus",
           map: "iapetus",
+          texture: "2k_iapetus.jpg",
+          category: "Moon",
+          color: "#b8a07a",
           image: "",
           radius: 734.5,
           distanceFromParent: 3560820,
@@ -541,10 +680,14 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Uranus",
       map: "uranus",
+      texture: "2k_uranus.jpg",
+      category: "Ice giant",
+      color: "#9fe3e0",
       image: "uranus.webp",
       radius: 25362,
       distanceFromParent: 2871000000,
       horizonsId: "799",
+      orbitId: "7",
       info: {
         mass: "8.681 × 10²⁵ kg",
         gravity: 8.87,
@@ -569,6 +712,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Miranda",
           map: "miranda",
+          texture: "2k_miranda.jpg",
+          category: "Moon",
+          color: "#bdbdbd",
           image: "",
           radius: 235.8,
           distanceFromParent: 129390,
@@ -594,6 +740,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Ariel",
           map: "ariel",
+          texture: "2k_ariel.jpg",
+          category: "Moon",
+          color: "#c9c9c9",
           image: "",
           radius: 578.9,
           distanceFromParent: 191020,
@@ -619,6 +768,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Umbriel",
           map: "umbriel",
+          texture: "2k_umbriel.jpg",
+          category: "Moon",
+          color: "#8f8f8f",
           image: "",
           radius: 584.7,
           distanceFromParent: 266300,
@@ -644,6 +796,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Titania",
           map: "titania",
+          texture: "2k_titania.jpg",
+          category: "Moon",
+          color: "#bfb7ae",
           image: "",
           radius: 788.4,
           distanceFromParent: 435910,
@@ -669,6 +824,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Oberon",
           map: "oberon",
+          texture: "2k_oberon.jpg",
+          category: "Moon",
+          color: "#b0a69c",
           image: "",
           radius: 761.4,
           distanceFromParent: 583519,
@@ -696,10 +854,14 @@ export const SOLAR_SYSTEM: CelestialBody = {
       type: "planet",
       name: "Neptune",
       map: "neptune",
+      texture: "2k_neptune.jpg",
+      category: "Ice giant",
+      color: "#5b7cff",
       image: "neptune.webp",
       radius: 24622,
       distanceFromParent: 4495000000,
       horizonsId: "899",
+      orbitId: "8",
       info: {
         mass: "1.024 × 10²⁶ kg",
         gravity: 11.15,
@@ -724,6 +886,9 @@ export const SOLAR_SYSTEM: CelestialBody = {
           type: "moon",
           name: "Triton",
           map: "triton",
+          texture: "2k_triton.jpg",
+          category: "Moon",
+          color: "#d8c8c0",
           image: "triton.webp",
           radius: 1353.4,
           distanceFromParent: 354759,
@@ -746,15 +911,219 @@ export const SOLAR_SYSTEM: CelestialBody = {
         },
       ],
     },
+    {
+      id: 34,
+      type: "region",
+      category: "Asteroid belt",
+      name: "Asteroid Belt",
+      map: "asteroid-belt",
+      texture: "",
+      color: "#b8a88f",
+      image: "asteroid-belt.webp",
+      radius: 0,
+      distanceFromParent: 411000000,
+      horizonsId: "",
+      info: {
+        ...factOnlyInfo("Despite the movies, the belt is mostly empty space: asteroids are on average about a million kilometres apart, and spacecraft cross it without having to dodge anything."),
+        mass: "≈ 2.4 × 10²¹ kg",
+      },
+      region: {
+        innerAU: 2.1,
+        outerAU: 3.3,
+        headline: [
+          { label: "Where", value: "Between Mars and Jupiter" },
+          { label: "Distance", value: "2.1–3.3 AU from the Sun" },
+          { label: "Mass", value: "≈ 3% of the Moon" },
+        ],
+        stats: [
+          { label: "Asteroids > 1 km", value: "1–2 million" },
+          { label: "Largest", value: "Ceres" },
+          { label: "Orbit", value: "3–6 years" },
+        ],
+      },
+      children: [],
+    },
+    {
+      id: 27,
+      type: "planet",
+      category: "Dwarf planet",
+      name: "Ceres",
+      map: "ceres",
+      texture: "2k_ceres.jpg",
+      color: "#a8a8a8",
+      image: "",
+      radius: 469.7,
+      distanceFromParent: 413700000,
+      horizonsId: "2000001",
+      info: {
+        mass: "9.38 × 10²⁰ kg",
+        gravity: 0.28,
+        temperature: -105,
+        dayLength: "9h 4m",
+        yearLength: "1,682 days",
+        orbitalSpeed: 17.9,
+        axialTilt: 4,
+        poleRA: 291.418,
+        poleDec: 66.764,
+        spinW0: 170.65,
+        spinRate: 952.1532,
+        eccentricity: 0.0785,
+        magneticField: false,
+        rings: false,
+        atmosphere: [],
+        funFact: "The largest object in the asteroid belt and the only dwarf planet in the inner Solar System. Its bright spots are salt deposits.",
+      },
+      children: [],
+    },
+    {
+      id: 28,
+      type: "planet",
+      category: "Dwarf planet",
+      name: "Pluto",
+      map: "pluto",
+      texture: "2k_pluto.jpg",
+      color: "#d8c2a8",
+      image: "",
+      radius: 1188.3,
+      distanceFromParent: 5906400000,
+      horizonsId: "999",
+      orbitId: "9",
+      barycenter: { satelliteId: "901", massRatio: 0.10855 },
+      info: {
+        mass: "1.303 × 10²² kg",
+        gravity: 0.62,
+        temperature: -229,
+        dayLength: "6.39 Earth days",
+        yearLength: "248 years",
+        orbitalSpeed: 4.74,
+        axialTilt: 122.53,
+        poleRA: 132.993,
+        poleDec: -6.163,
+        spinW0: 302.695,
+        spinRate: -56.3625225,
+        eccentricity: 0.2488,
+        magneticField: false,
+        rings: false,
+        atmosphere: ["N₂", "CH₄", "CO"],
+        funFact: "Pluto's heart-shaped Sputnik Planitia is a basin of frozen nitrogen larger than Texas, first seen by New Horizons in 2015.",
+      },
+      children: [
+        {
+          id: 29,
+          type: "moon",
+          category: "Moon",
+          name: "Charon",
+          map: "charon",
+          texture: "2k_charon.jpg",
+          color: "#b0aaa5",
+          image: "",
+          radius: 606,
+          distanceFromParent: 19591,
+          horizonsId: "901",
+          info: {
+            mass: "1.586 × 10²¹ kg",
+            gravity: 0.288,
+            temperature: -220,
+            dayLength: "6.39 Earth days",
+            yearLength: "6.39 days",
+            orbitalSpeed: 0.21,
+            axialTilt: 0,
+            poleRA: 132.993,
+            poleDec: -6.163,
+            eccentricity: 0.0002,
+            magneticField: false,
+            rings: false,
+            atmosphere: [],
+            funFact: "Charon is so big compared to Pluto that the two orbit a point in space between them, always showing each other the same face.",
+          },
+          children: [],
+        },
+      ],
+    },
+    {
+      id: 30,
+      type: "spacecraft",
+      category: "Spacecraft",
+      name: "Voyager 1",
+      map: "voyager-1",
+      texture: "",
+      color: "#7fffd4",
+      image: "",
+      radius: 0.01,
+      distanceFromParent: 25000000000,
+      horizonsId: "-31",
+      info: factOnlyInfo("The most distant human-made object. It carries the Golden Record, with sounds and images of life on Earth."),
+      mission: {
+        agency: "NASA",
+        launched: "5 Sep 1977",
+        status: "Interstellar space since 2012",
+        stats: [
+          { label: "Flybys", value: "Jupiter, Saturn" },
+          { label: "Speed", value: "17 km/s" },
+        ],
+      },
+      children: [],
+    },
+    {
+      id: 31,
+      type: "spacecraft",
+      category: "Spacecraft",
+      name: "Voyager 2",
+      map: "voyager-2",
+      texture: "",
+      color: "#7fffd4",
+      image: "",
+      radius: 0.01,
+      distanceFromParent: 21000000000,
+      horizonsId: "-32",
+      info: factOnlyInfo("The only spacecraft to have visited Uranus (1986) and Neptune (1989)."),
+      mission: {
+        agency: "NASA",
+        launched: "20 Aug 1977",
+        status: "Interstellar space since 2018",
+        stats: [
+          { label: "Flybys", value: "Jupiter, Saturn, Uranus, Neptune" },
+          { label: "Speed", value: "15 km/s" },
+        ],
+      },
+      children: [],
+    },
+    {
+      id: 32,
+      type: "spacecraft",
+      category: "Spacecraft",
+      name: "New Horizons",
+      map: "new-horizons",
+      texture: "",
+      color: "#7fffd4",
+      image: "",
+      radius: 0.01,
+      distanceFromParent: 9000000000,
+      horizonsId: "-98",
+      info: factOnlyInfo("The first spacecraft to fly past Pluto (2015) and a Kuiper Belt object, Arrokoth (2019)."),
+      mission: {
+        agency: "NASA",
+        launched: "19 Jan 2006",
+        status: "Exploring the Kuiper Belt",
+        stats: [
+          { label: "Flybys", value: "Jupiter, Pluto, Arrokoth" },
+          { label: "Speed", value: "14 km/s" },
+        ],
+      },
+      children: [],
+    },
   ],
 };
 
 export const MILKY_WAY: CelestialBody = {
   id: 100,
   type: "galaxy",
+  category: "Galaxy",
   name: "Milky Way",
-  map: "",
-  image: "",
+  map: "milky-way",
+  texture: "",
+  color: "#ffffff",
+  image: "milky-way.webp",
   radius: 52850,
   distanceFromParent: 0,
   horizonsId: "",
@@ -772,6 +1141,18 @@ export const MILKY_WAY: CelestialBody = {
     atmosphere: [],
     funFact:
       "The Milky Way contains 100-400 billion stars and is about 100,000 light-years in diameter. Our Solar System orbits the galactic center at about 220 km/s.",
+  },
+  galaxy: {
+    diameter: "100,000 light-years",
+    kind: "Barred spiral (SBbc)",
+    stats: [
+      { label: "Stars", value: "100-400 B" },
+      { label: "Age", value: "13.6 Gyr" },
+      { label: "Arms", value: "4" },
+      { label: "Rotation", value: "225 Myr" },
+      { label: "Sun dist.", value: "26,000 ly" },
+      { label: "Speed", value: "220 km/s" },
+    ],
   },
   children: [SOLAR_SYSTEM],
 };

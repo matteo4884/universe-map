@@ -33,6 +33,13 @@ export interface GalaxyData {
   phases: Float32Array;
 }
 
+const BAR_HALF_LENGTH = 110; // ~11,000 ly
+// The bar points ~27° away from the Sun–center line
+const BAR_ANGLE = Math.atan2(SUN_GALAXY_POSITION[1], SUN_GALAXY_POSITION[0]) - (27 * Math.PI) / 180;
+
+/** Share of stars per component (the rest is the halo) */
+const SHARE = { bulge: 0.05, bar: 0.08, arms: 0.47, disk: 0.25 };
+
 export function generateGalaxy(): GalaxyData {
   const positions = new Float32Array(STAR_COUNT * 3);
   const colors = new Float32Array(STAR_COUNT * 3);
@@ -43,57 +50,72 @@ export function generateGalaxy(): GalaxyData {
     const i3 = i * 3;
     let x: number, y: number, z: number;
     let r: number, g: number, b: number;
+    let size = 0.2 + Math.random() ** 2 * 0.5;
 
     const roll = Math.random();
 
-    if (roll < 0.04) {
-      // === BULGE (4%) — spread out center ===
-      const dist = (Math.abs(gaussRandom()) + Math.random() * 3) * BULGE_RADIUS * 1.5;
+    if (roll < SHARE.bulge) {
+      // === BULGE — round, old, warm stars ===
+      const dist = Math.abs(gaussRandom()) * BULGE_RADIUS;
       const phi = Math.random() * Math.PI * 2;
       const cosTheta = Math.random() * 2 - 1;
       const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
       x = dist * sinTheta * Math.cos(phi);
       y = dist * sinTheta * Math.sin(phi);
       z = dist * cosTheta * (BULGE_HEIGHT_SIGMA / BULGE_RADIUS);
-
-      r = 0.75;
-      g = 0.55 + Math.random() * 0.15;
-      b = 0.25 + Math.random() * 0.1;
-    } else if (roll < 0.50) {
-      // === ARMS (40%) — spiral structure, loosened scatter ===
+      r = 1.0;
+      g = 0.78 + Math.random() * 0.1;
+      b = 0.5 + Math.random() * 0.1;
+      size += 0.1;
+    } else if (roll < SHARE.bulge + SHARE.bar) {
+      // === BAR — elongated through the center ===
+      const along = gaussRandom() * BAR_HALF_LENGTH * 0.5;
+      const across = gaussRandom() * BAR_HALF_LENGTH * 0.16;
+      x = along * Math.cos(BAR_ANGLE) - across * Math.sin(BAR_ANGLE);
+      y = along * Math.sin(BAR_ANGLE) + across * Math.cos(BAR_ANGLE);
+      z = gaussRandom() * 10;
+      r = 1.0;
+      g = 0.75 + Math.random() * 0.12;
+      b = 0.45 + Math.random() * 0.12;
+    } else if (roll < SHARE.bulge + SHARE.bar + SHARE.arms) {
+      // === ARMS — log spirals starting from the bar's ends ===
       const armIndex = Math.floor(Math.random() * ARMS);
-      const distance = 20 + Math.random() * (GALAXY_RADIUS - 20);
+      const distance = BAR_HALF_LENGTH * 0.6 + Math.random() ** 0.85 * (GALAXY_RADIUS - BAR_HALF_LENGTH * 0.6);
       const theta = Math.log(distance / 20) / PITCH;
       const armAngle = theta + armIndex * ARM_ANGLE_OFFSET;
 
-      // Much wider scatter — softer arms
-      const scatter = gaussRandom() * (30 + distance * 0.12);
+      // Tight core, soft edges
+      const scatter = gaussRandom() * (10 + distance * 0.05) + gaussRandom() * 6;
       const angle = armAngle + scatter / distance;
 
       x = distance * Math.cos(angle);
       y = distance * Math.sin(angle);
-      z = gaussRandom() * DISK_HEIGHT_SIGMA;
+      z = gaussRandom() * DISK_HEIGHT_SIGMA * 0.8;
 
-      // Blue/white in arms
-      const armStrength = Math.exp(-(scatter * scatter) / (2 * 50 * 50));
-      r = 0.6 + (1 - armStrength) * 0.3;
-      g = 0.7 + armStrength * 0.2;
-      b = 0.8 + armStrength * 0.2;
-    } else if (roll < 0.8) {
-      // === INTER-ARM DISK (25%) — uniform disk fill ===
-      const distance = 15 + Math.random() * GALAXY_RADIUS;
+      // Young blue-white stars along the arms, with pink star-forming knots
+      const armStrength = Math.exp(-(scatter * scatter) / (2 * 18 * 18));
+      if (Math.random() < 0.03 * armStrength) {
+        r = 1.0;
+        g = 0.45;
+        b = 0.7;
+        size += 0.35;
+      } else {
+        r = 0.62 + (1 - armStrength) * 0.3;
+        g = 0.74 + armStrength * 0.16;
+        b = 0.88 + armStrength * 0.12;
+      }
+    } else if (roll < SHARE.bulge + SHARE.bar + SHARE.arms + SHARE.disk) {
+      // === DISK between the arms — exponential falloff ===
+      const distance = 20 - Math.log(1 - Math.random() * 0.98) * 140;
       const angle = Math.random() * Math.PI * 2;
-
       x = distance * Math.cos(angle);
       y = distance * Math.sin(angle);
-      z = gaussRandom() * DISK_HEIGHT_SIGMA * 1.5;
-
-      // Mixed warm/neutral colors
-      r = 0.7 + Math.random() * 0.25;
-      g = 0.65 + Math.random() * 0.2;
-      b = 0.5 + Math.random() * 0.25;
+      z = gaussRandom() * DISK_HEIGHT_SIGMA * 1.3;
+      r = 0.85 + Math.random() * 0.15;
+      g = 0.78 + Math.random() * 0.12;
+      b = 0.62 + Math.random() * 0.2;
     } else {
-      // === HALO (20%) — fills sky in all directions ===
+      // === HALO — fills the sky in all directions ===
       const dist = Math.abs(gaussRandom()) * GALAXY_RADIUS * 0.8;
       const phi = Math.random() * Math.PI * 2;
       const cosTheta = Math.random() * 2 - 1;
@@ -101,10 +123,9 @@ export function generateGalaxy(): GalaxyData {
       x = dist * sinTheta * Math.cos(phi);
       y = dist * sinTheta * Math.sin(phi);
       z = dist * cosTheta * 0.3;
-
       r = 0.9;
-      g = 0.6 + Math.random() * 0.2;
-      b = 0.4 + Math.random() * 0.15;
+      g = 0.65 + Math.random() * 0.2;
+      b = 0.45 + Math.random() * 0.15;
     }
 
     positions[i3] = x;
@@ -113,11 +134,7 @@ export function generateGalaxy(): GalaxyData {
     colors[i3] = r;
     colors[i3 + 1] = g;
     colors[i3 + 2] = b;
-
-    // Smaller sizes overall
-    const sizeRoll = Math.random();
-    sizes[i] = 0.2 + sizeRoll * sizeRoll * 0.5;
-
+    sizes[i] = size;
     phases[i] = Math.random() * Math.PI * 2;
   }
 
