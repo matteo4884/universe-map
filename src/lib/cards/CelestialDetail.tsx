@@ -1,20 +1,32 @@
 import { useContext } from "react";
 import { CelestialBody } from "../../data";
 import { FaEye } from "react-icons/fa";
-import { CameraNavigationContext } from "../../context/cameraNavigation";
+import { CameraNavigationContext } from "../../context/contexts";
 
 interface CelestialDetailProps {
   body: CelestialBody;
   onSelectChild: (index: number) => void;
   onGoBack?: () => void;
+  /** Called after a camera flight starts (e.g. to close an overlay covering the scene) */
+  onFly?: () => void;
 }
 
 export default function CelestialDetail({
   body,
   onSelectChild,
   onGoBack,
+  onFly,
 }: CelestialDetailProps) {
   const cameraNav = useContext(CameraNavigationContext);
+
+  const flyTo = (target: CelestialBody) => {
+    if (target.type === "galaxy") {
+      cameraNav?.setViewSnap("milkyway");
+    } else {
+      cameraNav?.setFlyTo(target);
+    }
+    onFly?.();
+  };
 
   const typeLabel =
     body.type === "galaxy"
@@ -192,13 +204,7 @@ export default function CelestialDetail({
       {/* Go to button */}
       <button
         className="w-full py-2.5 bg-[#ffffff15] border border-[#ffffff20] rounded-lg text-[13px] uppercase tracking-[2px] cursor-pointer hover:bg-[#ffffff25] transition-colors"
-        onClick={() => {
-          if (body.type === "galaxy") {
-            cameraNav?.setViewSnap("milkyway");
-          } else {
-            cameraNav?.setFlyTo(body);
-          }
-        }}
+        onClick={() => flyTo(body)}
       >
         Go to {body.name} →
       </button>
@@ -213,19 +219,23 @@ export default function CelestialDetail({
             {body.children.map((child, index) => (
               <div
                 key={child.id}
-                className="py-2 first:border-t border-b border-[#ffffff1e] flex justify-between items-center cursor-pointer hover:bg-[#ffffff08] transition-colors px-1 -mx-1 rounded"
-                onClick={() => onSelectChild(index)}
+                className="first:border-t border-b border-[#ffffff1e] flex justify-between items-center hover:bg-[#ffffff08] transition-colors rounded"
               >
-                <span className="uppercase text-sm font-bold">
+                <button
+                  type="button"
+                  className="flex-1 py-2 text-left uppercase text-sm font-bold cursor-pointer"
+                  onClick={() => onSelectChild(index)}
+                >
                   {child.name}
-                </span>
-                <FaEye
-                  className="hover:opacity-70 text-sm flex-shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    cameraNav?.setFlyTo(child);
-                  }}
-                />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Fly to ${child.name}`}
+                  className="py-2 pl-2 hover:opacity-70 cursor-pointer"
+                  onClick={() => flyTo(child)}
+                >
+                  <FaEye className="text-sm" />
+                </button>
               </div>
             ))}
           </div>

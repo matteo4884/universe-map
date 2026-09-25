@@ -18,7 +18,6 @@ export interface MissionConfig {
   crew: CrewMember[];
   youtubeVideoId: string;
   phases: MissionPhase[];
-  modelPath: string;
   queryParam: string;
 }
 
@@ -43,7 +42,6 @@ export const ARTEMIS_2: MissionConfig = {
     { name: "RETURN TRANSIT", startMET: 520000 },
     { name: "ENTRY & SPLASHDOWN", startMET: 820000 },
   ],
-  modelPath: "/models/orion.glb",
   queryParam: "artemis",
 };
 

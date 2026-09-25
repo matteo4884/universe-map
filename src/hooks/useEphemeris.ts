@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { loadEphemeris, EphemerisData, TrajectoryData } from "../services/horizons";
 
 export interface UseEphemerisResult {
@@ -55,5 +55,8 @@ export function useEphemeris(): UseEphemerisResult {
     };
   }, []);
 
-  return { positions, trajectories, loading, error, loadedAt };
+  return useMemo(
+    () => ({ positions, trajectories, loading, error, loadedAt }),
+    [positions, trajectories, loading, error, loadedAt]
+  );
 }

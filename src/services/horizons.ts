@@ -1,5 +1,3 @@
-export const KM_PER_UNIT = 6371;
-
 export interface EphemerisPoint {
   x: number;
   y: number;
@@ -30,13 +28,3 @@ export async function loadEphemeris(): Promise<EphemerisFile | null> {
   }
 }
 
-export function toThreeUnits(
-  point: EphemerisPoint,
-  scaleDistance: number
-): EphemerisPoint {
-  return {
-    x: point.x / KM_PER_UNIT / scaleDistance,
-    y: point.y / KM_PER_UNIT / scaleDistance,
-    z: point.z / KM_PER_UNIT / scaleDistance,
-  };
-}

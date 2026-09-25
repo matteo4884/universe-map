@@ -1,15 +1,18 @@
 import { useRef, useContext, useMemo, useEffect } from "react";
 import { ScaleContext } from "../../context/contexts";
-import { useLoader, useFrame, useThree } from "@react-three/fiber";
+import { useLoader, useFrame } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { blendPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinAngle } from "../../helper/units";
+import { blendPosition, blendRadius, poleToQuaternion, getSpinAngle } from "../../helper/units";
 import { EphemerisContext } from "../../context/ephemeris";
 import Planet from "../planets/Planet";
 import * as THREE from "three";
 import { BodySelectionContext } from "../../context/bodySelection";
 
+const SUN_EMISSIVE = new THREE.Color(1, 1, 0.6);
+const SUN_GLOW_COLOR = "orange";
+const SUN_LIGHT_COLOR = "#fffde3";
+
 interface StarProps {
-  map: string;
   position: THREE.Vector3 | [x: number, y: number, z: number];
   starObj: CelestialBody;
   visible: boolean;
@@ -17,28 +20,45 @@ interface StarProps {
   showOrbits?: boolean;
 }
 
-/** Orbit lines with mutable geometry — avoids recreating thousands of Vector3 objects per frame */
-function OrbitLines({ trajectories, planets, blend }: { trajectories: Record<string, { x: number; y: number; z: number }[]>; planets: CelestialBody[]; blend: number }) {
-  const geos = useMemo(() => {
-    const map = new Map<string, { geo: THREE.BufferGeometry; trajLen: number }>();
+/** Orbit lines with mutable geometry — rewritten in place when the scale blend changes */
+function OrbitLines({ trajectories, planets }: { trajectories: Record<string, { x: number; y: number; z: number }[]>; planets: CelestialBody[] }) {
+  const scaleCtx = useContext(ScaleContext);
+  if (!scaleCtx) throw new Error("Must be within ScaleProvider");
+  const { blendRef } = scaleCtx;
+
+  const lineMaterial = useMemo(() => new THREE.LineBasicMaterial({ color: "white", transparent: true, opacity: 0.015, depthWrite: false }), []);
+  useEffect(() => () => lineMaterial.dispose(), [lineMaterial]);
+
+  const orbits = useMemo(() => {
+    const list: { id: number; traj: { x: number; y: number; z: number }[]; line: THREE.Line }[] = [];
     for (const planet of planets) {
       const traj = trajectories[planet.horizonsId];
       if (!traj || traj.length < 2) continue;
-      const count = traj.length + 1;
       const geo = new THREE.BufferGeometry();
-      const positions = new Float32Array(count * 3);
-      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-      map.set(String(planet.id), { geo, trajLen: traj.length });
+      // One extra point closes the loop
+      geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array((traj.length + 1) * 3), 3));
+      list.push({ id: planet.id, traj, line: new THREE.Line(geo, lineMaterial) });
     }
-    return map;
-  }, [trajectories, planets]);
+    return list;
+  }, [trajectories, planets, lineMaterial]);
 
   useEffect(() => {
-    for (const planet of planets) {
-      const entry = geos.get(String(planet.id));
-      if (!entry) continue;
-      const traj = trajectories[planet.horizonsId];
-      const attr = entry.geo.getAttribute("position") as THREE.BufferAttribute;
+    return () => {
+      for (const { line } of orbits) line.geometry.dispose();
+    };
+  }, [orbits]);
+
+  const drawnBlend = useRef<number | null>(null);
+  const drawnOrbits = useRef<typeof orbits | null>(null);
+
+  useFrame(() => {
+    const blend = blendRef.current;
+    if (blend === drawnBlend.current && orbits === drawnOrbits.current) return;
+    drawnBlend.current = blend;
+    drawnOrbits.current = orbits;
+
+    for (const { traj, line } of orbits) {
+      const attr = line.geometry.getAttribute("position") as THREE.BufferAttribute;
       const arr = attr.array as Float32Array;
       for (let i = 0; i < traj.length; i++) {
         const pos = blendPosition(traj[i].x, traj[i].y, traj[i].z, blend);
@@ -50,31 +70,20 @@ function OrbitLines({ trajectories, planets, blend }: { trajectories: Record<str
       arr[traj.length * 3 + 1] = arr[1];
       arr[traj.length * 3 + 2] = arr[2];
       attr.needsUpdate = true;
+      line.geometry.computeBoundingSphere();
     }
-  }, [blend, geos, planets, trajectories]);
-
-  useEffect(() => {
-    return () => {
-      for (const { geo } of geos.values()) geo.dispose();
-    };
-  }, [geos]);
-
-  const lineMaterial = useMemo(() => new THREE.LineBasicMaterial({ color: "white", transparent: true, opacity: 0.015, depthWrite: false }), []);
+  });
 
   return (
     <>
-      {planets.map((planet) => {
-        const entry = geos.get(String(planet.id));
-        if (!entry) return null;
-        const lineObj = new THREE.Line(entry.geo, lineMaterial);
-        return <primitive key={`orbit-${planet.id}`} object={lineObj} />;
-      })}
+      {orbits.map(({ id, line }) => (
+        <primitive key={`orbit-${id}`} object={line} />
+      ))}
     </>
   );
 }
 
 export default function Star({
-  map,
   position,
   starObj,
   visible,
@@ -83,36 +92,25 @@ export default function Star({
 }: StarProps) {
   const scaleCtx = useContext(ScaleContext);
   if (!scaleCtx) throw new Error("Must be within ScaleProvider");
-  const { blend } = scaleCtx;
-  const { positions, trajectories } = useContext(EphemerisContext);
+  const { blendRef } = scaleCtx;
+  const { trajectories } = useContext(EphemerisContext);
   const { selectBody } = useContext(BodySelectionContext);
 
   const glowRef = useRef<THREE.Mesh>(null);
   const meshRef = useRef<THREE.Mesh>(null);
-  const { camera } = useThree();
 
-  let texture = "2k_sun.jpg";
-  let color = "orange";
-  let emissive = new THREE.Color(1, 1, 0.6);
-  let light = "#fffde3";
-  switch (map) {
-    case "g":
-      texture = "2k_sun.jpg";
-      color = "orange";
-      emissive = new THREE.Color(1, 1, 0.6);
-      light = "#fffde3";
-      break;
-  }
+  useFrame(({ clock, camera }) => {
+    // Sun radius blended — use scale on mesh, not geometry rebuild
+    const sunSize = blendRadius(starObj.radius, blendRef.current);
+    meshRef.current?.scale.setScalar(sunSize);
+    glowRef.current?.scale.setScalar(sunSize + 0.5);
 
-  useFrame(() => {
     if (starObj.info.spinW0 != null && starObj.info.spinRate != null) {
       const angle = getSpinAngle(starObj.info.spinW0, starObj.info.spinRate, new Date());
       if (meshRef.current) meshRef.current.rotation.y = angle;
       if (glowRef.current) glowRef.current.rotation.y = angle;
     }
-  });
 
-  useFrame(({ clock }) => {
     const time = clock.getElapsedTime();
     const intensity = 2 + Math.sin(time * 2) * 0.3;
     if (meshRef.current) {
@@ -127,48 +125,19 @@ export default function Star({
     }
   });
 
-  const sunTexture = useLoader(THREE.TextureLoader, `/${texture}`);
-
-  // Sun radius blended — use scale on mesh, not geometry rebuild
-  const sunSize = blendRadius(starObj.radius, blend);
+  const sunTexture = useLoader(THREE.TextureLoader, "/2k_sun.jpg");
 
   const sunGeo = useMemo(() => new THREE.SphereGeometry(1, 64, 64), []);
   const glowGeo = useMemo(() => new THREE.SphereGeometry(1, 64, 64), []);
   useEffect(() => () => { sunGeo.dispose(); glowGeo.dispose(); }, [sunGeo, glowGeo]);
 
+  const { poleRA, poleDec } = starObj.info;
   const sunPoleQuat = useMemo(() => {
-    const { poleRA, poleDec } = starObj.info;
     if (poleRA != null && poleDec != null) {
       return poleToQuaternion(poleRA, poleDec);
     }
     return new THREE.Quaternion();
-  }, [starObj.info.poleRA, starObj.info.poleDec]);
-
-  const planets = starObj.children.map((planet) => {
-    let planetPosition: [number, number, number];
-
-    if (positions && positions[planet.horizonsId]) {
-      const pos = positions[planet.horizonsId];
-      planetPosition = blendPosition(pos.x, pos.y, pos.z, blend);
-    } else {
-      const fallbackZ = planet.distanceFromParent / KM_PER_UNIT + sunSize;
-      planetPosition = [0, 0, fallbackZ];
-    }
-
-    const planetSize = blendRadius(planet.radius, blend);
-
-    return (
-      <Planet
-        map={planet.map}
-        position={planetPosition}
-        size={planetSize}
-        key={`${starObj.id}-${planet.id}`}
-        planetObj={planet}
-        starObj={starObj}
-        solarSystemVisible={visible}
-      />
-    );
-  });
+  }, [poleRA, poleDec]);
 
   return (
     <group position={position} visible={visible}>
@@ -176,33 +145,39 @@ export default function Star({
         ref={meshRef}
         quaternion={sunPoleQuat}
         geometry={sunGeo}
-        scale={[sunSize, sunSize, sunSize]}
         onClick={() => selectBody(starObj.id)}
       >
         <meshStandardMaterial
           map={sunTexture}
           emissiveMap={sunTexture}
           emissiveIntensity={2}
-          emissive={emissive}
+          emissive={SUN_EMISSIVE}
         />
       </mesh>
-      <mesh ref={glowRef} geometry={glowGeo} scale={[sunSize + 0.5, sunSize + 0.5, sunSize + 0.5]}>
+      <mesh ref={glowRef} geometry={glowGeo}>
         <meshStandardMaterial
-          color={color}
+          color={SUN_GLOW_COLOR}
           transparent
           opacity={0.2}
           depthWrite={false}
           emissiveIntensity={2}
-          emissive={color}
+          emissive={SUN_GLOW_COLOR}
         />
       </mesh>
 
-      {planets}
+      {starObj.children.map((planet) => (
+        <Planet
+          key={`${starObj.id}-${planet.id}`}
+          planetObj={planet}
+          starObj={starObj}
+          solarSystemVisible={visible}
+        />
+      ))}
 
       {/* Orbit trajectory lines */}
-      {showOrbits && trajectories && <OrbitLines trajectories={trajectories} planets={starObj.children} blend={blend} />}
+      {showOrbits && trajectories && <OrbitLines trajectories={trajectories} planets={starObj.children} />}
 
-      <pointLight intensity={2} distance={5000000} decay={0} color={light} />
+      <pointLight intensity={2} distance={5000000} decay={0} color={SUN_LIGHT_COLOR} />
     </group>
   );
 }

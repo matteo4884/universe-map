@@ -22,15 +22,15 @@ export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
   const allReady = !loading && assetsStarted && !assetsLoading && progress === 100;
 
   useEffect(() => {
-    if (allReady) {
-      if (error) {
-        setShowOffline(true);
-        setTimeout(() => setShowOffline(false), 3000);
-      }
-      setFadeOut(true);
-      const timer = setTimeout(() => setVisible(false), 500);
-      return () => clearTimeout(timer);
-    }
+    if (!allReady) return;
+    if (error) setShowOffline(true);
+    setFadeOut(true);
+    const hideTimer = setTimeout(() => setVisible(false), 500);
+    const offlineTimer = setTimeout(() => setShowOffline(false), 3000);
+    return () => {
+      clearTimeout(hideTimer);
+      clearTimeout(offlineTimer);
+    };
   }, [allReady, error]);
 
   if (!visible && !showOffline) return null;
@@ -53,7 +53,7 @@ export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
               {/* Orbiting dot */}
               <div
                 className="absolute inset-0"
-                style={{ animation: "orbit-spin 3s linear infinite" }}
+                style={{ animation: "spin-360 3s linear infinite" }}
               >
                 <div
                   className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]"
@@ -66,7 +66,7 @@ export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
               {/* Second orbiting dot */}
               <div
                 className="absolute inset-4"
-                style={{ animation: "orbit-spin 2s linear infinite reverse" }}
+                style={{ animation: "spin-360 2s linear infinite reverse" }}
               >
                 <div
                   className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[#4a90d9] shadow-[0_0_6px_rgba(74,144,217,0.6)]"
@@ -86,12 +86,6 @@ export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
             </div>
           </div>
 
-          <style>{`
-            @keyframes orbit-spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
         </div>
       )}
       {showOffline && !visible && (

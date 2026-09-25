@@ -1,6 +1,5 @@
-import { useContext, useState } from "react";
-import { ScaleContext } from "../../context/contexts";
-import { CameraNavigationContext } from "../../context/cameraNavigation";
+import { useContext, useState, useEffect } from "react";
+import { ScaleContext, CameraNavigationContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
 
 interface NormalHUDProps {
@@ -8,9 +7,13 @@ interface NormalHUDProps {
   setShowOrbits: (v: boolean) => void;
 }
 
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
       className={`w-8 h-4 rounded-full transition-colors relative cursor-pointer ${
         on ? "bg-[#4a90d9]" : "bg-[#333]"
       }`}
@@ -31,6 +34,16 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
   const ephemeris = useContext(EphemerisContext);
   const [infoOpen, setInfoOpen] = useState(false);
 
+  // Close the info modal with Escape
+  useEffect(() => {
+    if (!infoOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInfoOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [infoOpen]);
+
   if (!scaleCtx) return null;
   const { realisticMode, setRealisticMode } = scaleCtx;
 
@@ -44,7 +57,12 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
     {infoOpen && (
       <div className="fixed inset-0 z-[99999999999] flex items-center justify-center pointer-events-auto font-mono">
         <div className="absolute inset-0 bg-[rgba(0,0,0,0.75)] backdrop-blur-sm" onClick={() => setInfoOpen(false)} />
-        <div className="relative max-w-md mx-4 border border-[rgba(255,255,255,0.12)] rounded-xl overflow-hidden">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="about-title"
+          className="relative max-w-md mx-4 border border-[rgba(255,255,255,0.12)] rounded-xl overflow-hidden"
+        >
           {/* Gradient top accent */}
           <div className="h-[2px] bg-gradient-to-r from-transparent via-[#4a90d9] to-transparent" />
 
@@ -52,7 +70,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
             {/* Title */}
             <div className="text-center mb-6">
               <div className="text-[9px] tracking-[6px] text-[#4a90d9] uppercase mb-2">About</div>
-              <div className="text-xl font-bold tracking-[4px] text-white uppercase">Universe Map</div>
+              <div id="about-title" className="text-xl font-bold tracking-[4px] text-white uppercase">Universe Map</div>
             </div>
 
             {/* Description */}
@@ -88,6 +106,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
 
             {/* Close button */}
             <button
+              autoFocus
               onClick={() => setInfoOpen(false)}
               className="w-full text-[10px] tracking-[2px] uppercase py-2.5 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.12)] text-[rgba(255,255,255,0.5)] hover:text-white transition-colors cursor-pointer"
             >
@@ -135,6 +154,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
           <div className="flex items-center gap-2">
             <span className="text-[9px] text-[rgba(255,255,255,0.4)] tracking-[2px] uppercase">Real Scale</span>
             <Toggle
+              label="Real scale"
               on={realisticMode}
               onToggle={() => {
                 setRealisticMode(!realisticMode);
@@ -144,7 +164,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[9px] text-[rgba(255,255,255,0.4)] tracking-[2px] uppercase">Orbits</span>
-            <Toggle on={showOrbits} onToggle={() => setShowOrbits(!showOrbits)} />
+            <Toggle label="Orbits" on={showOrbits} onToggle={() => setShowOrbits(!showOrbits)} />
           </div>
         </div>
 
@@ -196,6 +216,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
           <div className="flex items-center gap-1.5">
             <span className="text-[7px] text-[rgba(255,255,255,0.35)] tracking-[1px] uppercase">Scale</span>
             <Toggle
+              label="Real scale"
               on={realisticMode}
               onToggle={() => {
                 setRealisticMode(!realisticMode);
@@ -205,7 +226,7 @@ export default function NormalHUD({ showOrbits, setShowOrbits }: NormalHUDProps)
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[7px] text-[rgba(255,255,255,0.35)] tracking-[1px] uppercase">Orbits</span>
-            <Toggle on={showOrbits} onToggle={() => setShowOrbits(!showOrbits)} />
+            <Toggle label="Orbits" on={showOrbits} onToggle={() => setShowOrbits(!showOrbits)} />
           </div>
         </div>
       </div>

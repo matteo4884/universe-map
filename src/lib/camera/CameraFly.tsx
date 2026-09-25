@@ -4,16 +4,13 @@ import * as THREE from "three";
 import { TrackballControls as TrackballControlsImpl } from "three-stdlib";
 import {
   CameraNavigationContext,
-} from "../../context/cameraNavigation";
-import { ScaleContext } from "../../context/contexts";
+  ScaleContext,
+  ArtemisModeContext,
+  ArtemisCameraTarget,
+} from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
-import { ArtemisModeContext } from "../../context/artemisMode";
-import {
-  blendPosition,
-  blendMoonPosition,
-  blendRadius,
-  KM_PER_UNIT,
-} from "../../helper/units";
+import { blendPosition, blendRadius } from "../../helper/units";
+import { planetPosition, moonOffset } from "../../helper/bodyPosition";
 import { SOLAR_SYSTEM, CelestialBody } from "../../data";
 import { EphemerisData } from "../../services/horizons";
 import { SUN_GALAXY_POSITION } from "../galaxy/generateGalaxy";
@@ -24,6 +21,11 @@ interface CameraFlyProps {
 
 // Neptune's semi-major axis — outermost planet, defines system extent
 const NEPTUNE_DIST_KM = 4495000000;
+const DEFAULT_MAX_DISTANCE = 300000000000;
+const ARTEMIS_MAX_DISTANCE = 150; // Limit zoom to Earth-Moon view
+const EARTH_RADIUS_KM = 6371;
+const MOON_RADIUS_KM = 1737;
+const WORLD_UP = new THREE.Vector3(0, 0, 1);
 
 function computeBodyPosition(
   body: CelestialBody,
@@ -32,39 +34,18 @@ function computeBodyPosition(
 ): THREE.Vector3 {
   if (body.type === "star") return new THREE.Vector3(0, 0, 0);
 
-  const pos = positions[body.horizonsId];
-
   if (body.type === "moon") {
     const parentPlanet = SOLAR_SYSTEM.children.find((p) =>
-      p.children.some((m) => m.id === body.id && m.name === body.name)
+      p.children.some((m) => m.id === body.id)
     );
     if (parentPlanet) {
-      const planetPos = positions[parentPlanet.horizonsId];
-      const moonPos = pos;
-      if (planetPos && moonPos) {
-        const pp = blendPosition(planetPos.x, planetPos.y, planetPos.z, blend);
-        const relX = moonPos.x - planetPos.x;
-        const relY = moonPos.y - planetPos.y;
-        const relZ = moonPos.z - planetPos.z;
-        const mp = blendMoonPosition(relX, relY, relZ, blend);
-        return new THREE.Vector3(
-          pp[0] + mp[0],
-          pp[1] + mp[1],
-          pp[2] + mp[2]
-        );
-      }
+      const planet = planetPosition(parentPlanet, SOLAR_SYSTEM, positions, blend);
+      const offset = moonOffset(body, parentPlanet, positions, blend);
+      return new THREE.Vector3(...planet).add(new THREE.Vector3(...offset));
     }
   }
 
-  if (pos) {
-    const p = blendPosition(pos.x, pos.y, pos.z, blend);
-    return new THREE.Vector3(p[0], p[1], p[2]);
-  }
-
-  const fallbackZ =
-    body.distanceFromParent / KM_PER_UNIT +
-    blendRadius(SOLAR_SYSTEM.radius, blend);
-  return new THREE.Vector3(0, 0, fallbackZ);
+  return new THREE.Vector3(...planetPosition(body, SOLAR_SYSTEM, positions, blend));
 }
 
 /**
@@ -90,11 +71,42 @@ function computeCameraLanding(
   return bodyPos.clone().addScaledVector(dirToSun, dist);
 }
 
+/**
+ * Camera behind `subject`, looking past it toward `toward`,
+ * raised by `upFactor * dist` and shifted sideways by `sideFactor * dist`.
+ */
+function chaseCamera(
+  subject: THREE.Vector3,
+  toward: THREE.Vector3,
+  dist: number,
+  upFactor: number,
+  sideFactor: number
+): THREE.Vector3 {
+  const dir = toward.clone().sub(subject).normalize();
+  const side = new THREE.Vector3().crossVectors(dir, WORLD_UP).normalize();
+  return subject.clone()
+    .addScaledVector(dir, -dist)
+    .addScaledVector(WORLD_UP, dist * upFactor)
+    .addScaledVector(side, dist * sideFactor);
+}
+
+/** Realistic-scale position of a body tracked in Artemis mode */
+function artemisBodyPosition(
+  body: Exclude<ArtemisCameraTarget, null>,
+  orion: THREE.Vector3,
+  positions: EphemerisData
+): THREE.Vector3 {
+  if (body === "orion") return orion.clone();
+  const eph = positions[body === "earth" ? "399" : "301"];
+  return eph ? new THREE.Vector3(...blendPosition(eph.x, eph.y, eph.z, 1)) : new THREE.Vector3();
+}
+
 export default function CameraFly({ controlsRef }: CameraFlyProps) {
   const cameraNav = useContext(CameraNavigationContext);
   const scaleCtx = useContext(ScaleContext);
   const { positions } = useContext(EphemerisContext);
   const artemis = useContext(ArtemisModeContext);
+  const { setCameraLocked } = artemis;
   const prevArtemisActive = useRef(false);
   const pendingArtemisFly = useRef(false);
   const prevOrionEnhanced = useRef(artemis.orionEnhanced);
@@ -107,12 +119,12 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     const canvas = gl.domElement;
     const onDown = (e: MouseEvent) => {
       if (e.button === 2 && cameraLockedRef.current) {
-        artemis.setCameraLocked(null);
+        setCameraLocked(null);
       }
     };
     canvas.addEventListener("mousedown", onDown);
     return () => canvas.removeEventListener("mousedown", onDown);
-  }, [gl]);
+  }, [gl, setCameraLocked]);
 
   const isAnimating = useRef(false);
   const animationProgress = useRef(0);
@@ -133,7 +145,53 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     if (!controls) return;
 
     const { flyTo, setFlyTo, viewSnap, setViewSnap } = cameraNav;
-    const { blend } = scaleCtx;
+    const blend = scaleCtx.blendRef.current;
+
+    /** Start a camera transition from the current view */
+    function startAnimation(
+      position: THREE.Vector3,
+      target: THREE.Vector3,
+      up: THREE.Vector3,
+      duration: number,
+      bodyRadius = 0
+    ) {
+      startPosition.current.copy(camera.position);
+      startTarget.current.copy(controls!.target);
+      startUp.current.copy(camera.up);
+      endPosition.current.copy(position);
+      endTarget.current.copy(target);
+      endUp.current.copy(up);
+      animationDuration.current = duration;
+      animationProgress.current = 0;
+      isAnimating.current = true;
+      currentBodyRadius.current = bodyRadius;
+      controls!.enabled = false;
+    }
+
+    const spacecraft = artemis.active ? artemis.getSpacecraftPosition() : null;
+    const orionVec = spacecraft
+      ? new THREE.Vector3(...blendPosition(spacecraft.x, spacecraft.y, spacecraft.z, 1))
+      : null;
+
+    /** Fly to Orion, Earth or Moon in Artemis mode, then keep tracking it */
+    function startArtemisFly(target: Exclude<ArtemisCameraTarget, null>, orion: THREE.Vector3, duration: number) {
+      setCameraLocked(target);
+      const moonVec = artemisBodyPosition("moon", orion, positions!);
+      let camPos: THREE.Vector3;
+      let camTarget: THREE.Vector3;
+
+      if (target === "orion") {
+        const closeDist = artemis.orionEnhanced ? 0.15 : 0.000008;
+        camTarget = orion;
+        camPos = chaseCamera(orion, moonVec, closeDist, 0.3, 0.15);
+      } else {
+        const radius = blendRadius(target === "earth" ? EARTH_RADIUS_KM : MOON_RADIUS_KM, 1);
+        camTarget = artemisBodyPosition(target, orion, positions!);
+        camPos = chaseCamera(camTarget, orion, radius * 4, 1.5 / 4, 1 / 4);
+      }
+
+      startAnimation(camPos, camTarget, WORLD_UP, duration);
+    }
 
     // Re-fly to Orion when enhanced mode toggles
     if (artemis.active && artemis.orionEnhanced !== prevOrionEnhanced.current) {
@@ -145,126 +203,28 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     if (artemis.active && !prevArtemisActive.current) {
       pendingArtemisFly.current = true;
     }
-    if (pendingArtemisFly.current && artemis.active && artemis.position && positions && !isAnimating.current) {
+    if (pendingArtemisFly.current && orionVec && !isAnimating.current) {
       pendingArtemisFly.current = false;
-      artemis.setCameraLocked("orion");
-      controls.maxDistance = 150; // Limit zoom to Earth-Moon view
-      const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
-      const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
-      const moonEph = positions["301"];
-      const moonVec = moonEph
-        ? new THREE.Vector3(...blendPosition(moonEph.x, moonEph.y, moonEph.z, 1))
-        : orionVec.clone().add(new THREE.Vector3(10, 0, 0));
-
-      const orionToMoon = moonVec.clone().sub(orionVec).normalize();
-      const upDir = new THREE.Vector3(0, 0, 1);
-      const sideDir = new THREE.Vector3().crossVectors(orionToMoon, upDir).normalize();
-      const closeDist = artemis.orionEnhanced ? 0.15 : 0.000008;
-
-      startPosition.current.copy(camera.position);
-      startTarget.current.copy(controls.target);
-      startUp.current.copy(camera.up);
-      endPosition.current.copy(
-        orionVec.clone()
-          .addScaledVector(orionToMoon, -closeDist)
-          .addScaledVector(upDir, closeDist * 0.3)
-          .addScaledVector(sideDir, closeDist * 0.15)
-      );
-      endTarget.current.copy(orionVec);
-      endUp.current.set(0, 0, 1);
-
-      animationDuration.current = 2.5;
-      animationProgress.current = 0;
-      isAnimating.current = true;
-      currentBodyRadius.current = 0;
-      controls.enabled = false;
+      controls.maxDistance = ARTEMIS_MAX_DISTANCE;
+      startArtemisFly("orion", orionVec, 2.5);
     }
 
     // Restore maxDistance when exiting Artemis
     if (!artemis.active && prevArtemisActive.current) {
-      controls.maxDistance = 300000000000;
+      controls.maxDistance = DEFAULT_MAX_DISTANCE;
     }
     prevArtemisActive.current = artemis.active;
 
     // Artemis camera target navigation (Earth, Moon, Orion buttons)
-    if (artemis.cameraTarget && artemis.active && artemis.position && positions && !isAnimating.current) {
+    if (artemis.cameraTarget && orionVec && !isAnimating.current) {
       const target = artemis.cameraTarget;
       artemis.setCameraTarget(null);
-      artemis.setCameraLocked(target);
-
-      const orionPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
-      const orionVec = new THREE.Vector3(orionPos[0], orionPos[1], orionPos[2]);
-      const earthEph = positions["399"];
-      const earthVec = earthEph
-        ? new THREE.Vector3(...blendPosition(earthEph.x, earthEph.y, earthEph.z, 1))
-        : new THREE.Vector3();
-      const moonEph = positions["301"];
-      const moonVec = moonEph
-        ? new THREE.Vector3(...blendPosition(moonEph.x, moonEph.y, moonEph.z, 1))
-        : new THREE.Vector3();
-
-      let camPos: THREE.Vector3;
-      let camTarget: THREE.Vector3;
-
-      if (target === "orion") {
-        const orionToMoon = moonVec.clone().sub(orionVec).normalize();
-        const upDir = new THREE.Vector3(0, 0, 1);
-        const sideDir = new THREE.Vector3().crossVectors(orionToMoon, upDir).normalize();
-        const closeDist = artemis.orionEnhanced ? 0.15 : 0.000008;
-        camTarget = orionVec;
-        camPos = orionVec.clone()
-          .addScaledVector(orionToMoon, -closeDist)
-          .addScaledVector(upDir, closeDist * 0.3)
-          .addScaledVector(sideDir, closeDist * 0.15);
-      } else if (target === "earth") {
-        const earthRadius = blendRadius(6371, 1);
-        const toOrion = orionVec.clone().sub(earthVec).normalize();
-        const upDir = new THREE.Vector3(0, 0, 1);
-        const sideDir = new THREE.Vector3().crossVectors(toOrion, upDir).normalize();
-        camTarget = earthVec;
-        camPos = earthVec.clone()
-          .addScaledVector(toOrion, -earthRadius * 4)
-          .addScaledVector(upDir, earthRadius * 1.5)
-          .addScaledVector(sideDir, earthRadius);
-      } else {
-        const moonRadius = blendRadius(1737, 1);
-        const toOrion = orionVec.clone().sub(moonVec).normalize();
-        const upDir = new THREE.Vector3(0, 0, 1);
-        const sideDir = new THREE.Vector3().crossVectors(toOrion, upDir).normalize();
-        camTarget = moonVec;
-        camPos = moonVec.clone()
-          .addScaledVector(toOrion, -moonRadius * 4)
-          .addScaledVector(upDir, moonRadius * 1.5)
-          .addScaledVector(sideDir, moonRadius);
-      }
-
-      startPosition.current.copy(camera.position);
-      startTarget.current.copy(controls.target);
-      startUp.current.copy(camera.up);
-      endPosition.current.copy(camPos);
-      endTarget.current.copy(camTarget);
-      endUp.current.set(0, 0, 1);
-
-      animationDuration.current = 2.0;
-      animationProgress.current = 0;
-      isAnimating.current = true;
-      currentBodyRadius.current = 0;
-      controls.enabled = false;
+      startArtemisFly(target, orionVec, 2.0);
     }
 
     // Camera tracking — follow selected body in Artemis mode
-    if (artemis.cameraLocked && artemis.active && artemis.position && positions && !isAnimating.current) {
-      let bodyPos: [number, number, number];
-      if (artemis.cameraLocked === "orion") {
-        bodyPos = blendPosition(artemis.position.x, artemis.position.y, artemis.position.z, 1);
-      } else if (artemis.cameraLocked === "earth") {
-        const e = positions["399"];
-        bodyPos = e ? blendPosition(e.x, e.y, e.z, 1) : [0, 0, 0];
-      } else {
-        const m = positions["301"];
-        bodyPos = m ? blendPosition(m.x, m.y, m.z, 1) : [0, 0, 0];
-      }
-      const newTarget = new THREE.Vector3(bodyPos[0], bodyPos[1], bodyPos[2]);
+    if (artemis.cameraLocked && orionVec && !isAnimating.current) {
+      const newTarget = artemisBodyPosition(artemis.cameraLocked, orionVec, positions);
       const trackingOffset = newTarget.clone().sub(controls.target);
       if (trackingOffset.lengthSq() > 1e-20) {
         camera.position.add(trackingOffset);
@@ -273,7 +233,7 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
     }
 
     // Clear tracking on Artemis exit
-    if (!artemis.active && artemis.cameraLocked) artemis.setCameraLocked(null);
+    if (!artemis.active && artemis.cameraLocked) setCameraLocked(null);
 
     // Handle view snap — fixed positions that scale with blend
     if (viewSnap && !isAnimating.current) {
@@ -284,78 +244,53 @@ export default function CameraFly({ controlsRef }: CameraFlyProps) {
       const [nx] = blendPosition(NEPTUNE_DIST_KM, 0, 0, targetBlend);
       const viewDist = Math.abs(nx) * 1.4;
 
-      startPosition.current.copy(camera.position);
-      startTarget.current.copy(controls.target);
-      startUp.current.copy(camera.up);
-      endTarget.current.set(0, 0, 0);
-      endUp.current.set(0, 0, 1);
+      const snapPosition = new THREE.Vector3();
+      const snapTarget = new THREE.Vector3(0, 0, 0);
+      const snapUp = WORLD_UP.clone();
 
       if (viewSnap === "top") {
-        endPosition.current.set(0, 0, viewDist);
-        endUp.current.set(0, -1, 0);
+        snapPosition.set(0, 0, viewDist);
+        snapUp.set(0, -1, 0);
       } else if (viewSnap === "front") {
-        endPosition.current.set(0, viewDist, 0);
+        snapPosition.set(0, viewDist, 0);
       } else if (viewSnap === "home") {
         // "home" — midway between top and front
         const angle = Math.PI / 4;
-        endPosition.current.set(
-          0,
-          viewDist * Math.sin(angle),
-          viewDist * Math.cos(angle)
-        );
+        snapPosition.set(0, viewDist * Math.sin(angle), viewDist * Math.cos(angle));
       } else {
         // "milkyway" — galactic overview, centered on galaxy center
         const GALAXY_SCALE = 250000000;
-        const galaxyCenter = new THREE.Vector3(
+        snapTarget.set(
           -SUN_GALAXY_POSITION[0] * GALAXY_SCALE,
           -SUN_GALAXY_POSITION[1] * GALAXY_SCALE,
           -SUN_GALAXY_POSITION[2] * GALAXY_SCALE
         );
-        endTarget.current.copy(galaxyCenter);
 
         const galaxyDist = 280000000000;
         const angle = Math.PI / 6; // 30° above galactic plane
-        endPosition.current.set(
-          galaxyCenter.x + galaxyDist * Math.sin(angle) * 0.3,
-          galaxyCenter.y + galaxyDist * Math.sin(angle),
-          galaxyCenter.z + galaxyDist * Math.cos(angle)
+        snapPosition.set(
+          snapTarget.x + galaxyDist * Math.sin(angle) * 0.3,
+          snapTarget.y + galaxyDist * Math.sin(angle),
+          snapTarget.z + galaxyDist * Math.cos(angle)
         );
       }
 
-      const snapDist = camera.position.distanceTo(endPosition.current);
-      animationDuration.current = Math.min(1.0 + snapDist / 100000000000 * 2.0, 3.5);
-      animationProgress.current = 0;
-      isAnimating.current = true;
-      currentBodyRadius.current = 0;
-      controls.enabled = false;
-
+      const snapDist = camera.position.distanceTo(snapPosition);
+      startAnimation(snapPosition, snapTarget, snapUp, Math.min(1.0 + snapDist / 100000000000 * 2.0, 3.5));
       setViewSnap(null);
     }
 
     if (flyTo && !isAnimating.current) {
       const bodyPos = computeBodyPosition(flyTo, positions, blend);
       const bodyRadius = blendRadius(flyTo.radius, blend);
-
       const cameraLanding = computeCameraLanding(bodyPos, bodyRadius);
 
       const flyDist = camera.position.distanceTo(cameraLanding);
-      const maxDist = 500000;
-      const t = Math.min(flyDist / maxDist, 1);
-      animationDuration.current = 0.8 + t * 2.2;
+      const t = Math.min(flyDist / 500000, 1);
 
-      startPosition.current.copy(camera.position);
-      startTarget.current.copy(controls.target);
-      startUp.current.copy(camera.up);
-      endPosition.current.copy(cameraLanding);
-      endTarget.current.copy(bodyPos);
-      endUp.current.set(0, 0, 1); // Ecliptic north always up
-      currentBodyRadius.current = bodyRadius;
+      // Ecliptic north always up
+      startAnimation(cameraLanding, bodyPos, WORLD_UP, 0.8 + t * 2.2, bodyRadius);
       currentBodyPos.current.copy(bodyPos);
-
-      animationProgress.current = 0;
-      isAnimating.current = true;
-      controls.enabled = false;
-
       setFlyTo(null);
     }
 

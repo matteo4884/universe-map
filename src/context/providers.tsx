@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { ScaleContext } from "./contexts";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { CelestialBody } from "../data";
+import { ScaleContext, CameraNavigationContext, ViewDirection } from "./contexts";
 
 type Props = {
   children: React.ReactNode;
@@ -7,22 +8,21 @@ type Props = {
 
 export function ScaleProvider({ children }: Props) {
   const [realisticMode, setRealisticMode] = useState(false);
-  const [blend, setBlend] = useState(0); // 0 = log, 1 = realistic
-  const targetRef = useRef(0);
+  // Kept in a ref: 3D components read it every frame, so animating it
+  // must not re-render the scene tree
+  const blendRef = useRef(0);
 
   useEffect(() => {
-    targetRef.current = realisticMode ? 1 : 0;
+    const target = realisticMode ? 1 : 0;
     let frame: number;
-    let current = blend;
 
     function step() {
-      const target = targetRef.current;
-      current += (target - current) * 0.08;
+      const current = blendRef.current + (target - blendRef.current) * 0.08;
       if (Math.abs(current - target) < 0.001) {
-        setBlend(target);
+        blendRef.current = target;
         return;
       }
-      setBlend(current);
+      blendRef.current = current;
       frame = requestAnimationFrame(step);
     }
 
@@ -31,13 +31,33 @@ export function ScaleProvider({ children }: Props) {
   }, [realisticMode]);
 
   const setBlendInstant = useCallback((value: number) => {
-    setBlend(value);
-    targetRef.current = value;
+    blendRef.current = value;
   }, []);
 
+  const value = useMemo(
+    () => ({ realisticMode, setRealisticMode, blendRef, setBlendInstant }),
+    [realisticMode, setBlendInstant]
+  );
+
   return (
-    <ScaleContext.Provider value={{ realisticMode, setRealisticMode, blend, setBlendInstant }}>
+    <ScaleContext.Provider value={value}>
       {children}
     </ScaleContext.Provider>
+  );
+}
+
+export function CameraNavigationProvider({ children }: Props) {
+  const [flyTo, setFlyTo] = useState<CelestialBody | null>(null);
+  const [viewSnap, setViewSnap] = useState<ViewDirection>(null);
+
+  const value = useMemo(
+    () => ({ flyTo, setFlyTo, viewSnap, setViewSnap }),
+    [flyTo, viewSnap]
+  );
+
+  return (
+    <CameraNavigationContext.Provider value={value}>
+      {children}
+    </CameraNavigationContext.Provider>
   );
 }

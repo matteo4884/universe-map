@@ -3,7 +3,6 @@ import { Canvas } from '@react-three/fiber';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { TrackballControls } from '@react-three/drei';
 import { useState, useRef, useContext, useEffect, useMemo, useCallback } from 'react';
-import { CameraNavigationContext } from './context/cameraNavigation';
 import { TrackballControls as TrackballControlsImpl } from 'three-stdlib';
 import CameraFly from './lib/camera/CameraFly';
 import { CELESTIAL_BODIES, MILKY_WAY } from './data';
@@ -16,12 +15,14 @@ import { EphemerisContext } from './context/ephemeris';
 import LoadingScreen from './lib/LoadingScreen';
 import NormalHUD from './lib/hud/NormalHUD';
 import { blendPosition } from './helper/units';
-import { ArtemisModeProvider, ArtemisModeContext } from './context/artemisMode';
-import { ScaleContext } from './context/contexts';
+import { isWebGLAvailable } from './helper/webgl';
+import { ArtemisModeProvider } from './context/artemisMode';
+import { ScaleContext, CameraNavigationContext, ArtemisModeContext } from './context/contexts';
 import ArtemisButton from './lib/artemis/ArtemisButton';
 import ArtemisHUD from './lib/artemis/ArtemisHUD';
 import OrionSpacecraft from './lib/artemis/OrionSpacecraft';
 import { BodySelectionContext } from './context/bodySelection';
+import { SceneErrorBoundary, SceneErrorScreen } from './lib/SceneError';
 
 const BACKGROUND_COLOR = new THREE.Color(0, 0, 0);
 
@@ -38,15 +39,13 @@ const INITIAL_CAMERA: [number, number, number] = [
 function ArtemisAwareUI({
   showOrbits,
   setShowOrbits,
-  visible,
   navigateToId,
 }: {
   showOrbits: boolean;
   setShowOrbits: (v: boolean) => void;
-  visible: boolean;
   navigateToId: number | null;
 }) {
-  const { active, position } = useContext(ArtemisModeContext);
+  const { active, hasPosition } = useContext(ArtemisModeContext);
   const scaleCtx = useContext(ScaleContext);
   const cameraNav = useContext(CameraNavigationContext);
   const prevActive = useRef(false);
@@ -59,14 +58,7 @@ function ArtemisAwareUI({
     if (navigateToId != null) setExploreOpen(true);
   }, [navigateToId]);
 
-  const exitTimeout1 = useRef<number | null>(null);
-  const exitTimeout2 = useRef<number | null>(null);
-
   useEffect(() => {
-    // Clear any pending timeouts from previous runs
-    if (exitTimeout1.current) clearTimeout(exitTimeout1.current);
-    if (exitTimeout2.current) clearTimeout(exitTimeout2.current);
-
     if (active && !prevActive.current) {
       // Entering Artemis — show overlay, instant blend
       setTransitioning(true);
@@ -78,32 +70,35 @@ function ArtemisAwareUI({
       // Exiting Artemis — show overlay, instant blend back
       setTransitioning(true);
       setFadeOut(false);
-      exitTimeout1.current = window.setTimeout(() => {
+      const switchTimer = window.setTimeout(() => {
         scaleCtx?.setBlendInstant(0);
         scaleCtx?.setRealisticMode(false);
         setShowOrbits(true);
         cameraNav?.setViewSnap("home");
         setFadeOut(true);
       }, 300);
-      exitTimeout2.current = window.setTimeout(() => setTransitioning(false), 800);
+      const hideTimer = window.setTimeout(() => setTransitioning(false), 800);
+      prevActive.current = active;
+      return () => {
+        clearTimeout(switchTimer);
+        clearTimeout(hideTimer);
+      };
     }
     prevActive.current = active;
-
-    return () => {
-      if (exitTimeout1.current) clearTimeout(exitTimeout1.current);
-      if (exitTimeout2.current) clearTimeout(exitTimeout2.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to mode switches only
   }, [active]);
 
   // Fade out overlay once Artemis data arrives + camera fly-to completes
   useEffect(() => {
-    if (transitioning && active && position) {
-      // Data arrived — wait for camera fly-to to finish (~3s), then fade out
-      setTimeout(() => setFadeOut(true), 3000);
-      setTimeout(() => setTransitioning(false), 3500);
-    }
-  }, [transitioning, active, position]);
+    if (!transitioning || !active || !hasPosition) return;
+    // Data arrived — wait for camera fly-to to finish (~3s), then fade out
+    const fadeTimer = window.setTimeout(() => setFadeOut(true), 3000);
+    const hideTimer = window.setTimeout(() => setTransitioning(false), 3500);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [transitioning, active, hasPosition]);
 
   return (
     <>
@@ -136,13 +131,12 @@ function ArtemisAwareUI({
       {!active && (
         <CelestialCard
           root={MILKY_WAY}
-          visible={visible}
-          externalOpen={exploreOpen}
-          onExternalToggle={() => setExploreOpen((prev) => !prev)}
+          open={exploreOpen}
+          onToggle={() => setExploreOpen((prev) => !prev)}
           navigateToId={navigateToId}
         />
       )}
-      {!active && <MobileSheet root={MILKY_WAY} visible={visible} navigateToId={navigateToId} />}
+      {!active && <MobileSheet root={MILKY_WAY} navigateToId={navigateToId} />}
       <ArtemisButton />
       <ArtemisHUD />
     </>
@@ -175,6 +169,9 @@ function AppInner() {
   const mergedEphemeris = useArtemisEphemeris(ephemeris);
   const [showOrbits, setShowOrbits] = useState(true);
   const [navigateToId, setNavigateToId] = useState<number | null>(null);
+  const webglAvailable = useMemo(isWebGLAvailable, []);
+  const [sceneFailed, setSceneFailed] = useState(false);
+  const handleSceneError = useCallback(() => setSceneFailed(true), []);
 
   const selectBody = useCallback((bodyId: number) => {
     setNavigateToId(bodyId);
@@ -190,17 +187,9 @@ function AppInner() {
 
   const bodySelectionValue = useMemo(() => ({ selectBody }), [selectBody]);
 
-  const stars = CELESTIAL_BODIES.map((star) => (
-    <Star
-      map="g"
-      position={[0, 0, 0]}
-      starObj={star}
-      visible={visible}
-      setVisible={setVisible}
-      showOrbits={showOrbits}
-      key={star.id}
-    />
-  ));
+  if (!webglAvailable || sceneFailed) {
+    return <SceneErrorScreen webgl={webglAvailable} />;
+  }
 
   return (
     <BodySelectionContext.Provider value={bodySelectionValue}>
@@ -209,41 +198,51 @@ function AppInner() {
       <div className="noselect">
         <div id="canvas-container" className="w-screen h-screen">
           {!ephemeris.loading && (
-            <Canvas
-              gl={{ logarithmicDepthBuffer: true }}
-              fallback={<div>Sorry no WebGL supported!</div>}
-              camera={{
-                fov: 50,
-                position: INITIAL_CAMERA,
-                up: [0, 0, 1],
-                near: 0.0000001,
-                far: 500000000000,
-              }}
-              scene={{ background: BACKGROUND_COLOR }}
-            >
-              {stars}
-              <MilkyWay />
-              <OrionSpacecraft />
-              <ambientLight intensity={0} />
-              <EffectComposer>
-                <Bloom
-                  intensity={2.5}
-                  luminanceThreshold={0.2}
-                  luminanceSmoothing={0.9}
+            <SceneErrorBoundary onError={handleSceneError}>
+              <Canvas
+                gl={{ logarithmicDepthBuffer: true }}
+                camera={{
+                  fov: 50,
+                  position: INITIAL_CAMERA,
+                  up: [0, 0, 1],
+                  near: 0.0000001,
+                  far: 500000000000,
+                }}
+                scene={{ background: BACKGROUND_COLOR }}
+              >
+                {CELESTIAL_BODIES.map((star) => (
+                  <Star
+                    position={[0, 0, 0]}
+                    starObj={star}
+                    visible={visible}
+                    setVisible={setVisible}
+                    showOrbits={showOrbits}
+                    key={star.id}
+                  />
+                ))}
+                <MilkyWay />
+                <OrionSpacecraft />
+                <ambientLight intensity={0} />
+                <EffectComposer>
+                  <Bloom
+                    intensity={2.5}
+                    luminanceThreshold={0.2}
+                    luminanceSmoothing={0.9}
+                  />
+                </EffectComposer>
+                <TrackballControls
+                  ref={controlsRef}
+                  rotateSpeed={2}
+                  panSpeed={0.6}
+                  zoomSpeed={1.5}
+                  maxDistance={300000000000}
                 />
-              </EffectComposer>
-              <TrackballControls
-                ref={controlsRef}
-                rotateSpeed={2}
-                panSpeed={0.6}
-                zoomSpeed={1.5}
-                maxDistance={300000000000}
-              />
-              <CameraFly controlsRef={controlsRef} />
-            </Canvas>
+                <CameraFly controlsRef={controlsRef} />
+              </Canvas>
+            </SceneErrorBoundary>
           )}
         </div>
-        <ArtemisAwareUI showOrbits={showOrbits} setShowOrbits={setShowOrbits} visible={visible} navigateToId={navigateToId} />
+        <ArtemisAwareUI showOrbits={showOrbits} setShowOrbits={setShowOrbits} navigateToId={navigateToId} />
       </div>
     </EphemerisContext.Provider>
     </BodySelectionContext.Provider>

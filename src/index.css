@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
-
 @import "tailwindcss";
 
 body {
@@ -52,76 +50,6 @@ body {
   user-select: none; /* Non-prefixed version, currently
                                     supported by Chrome, Edge, Opera and Firefox */
 }
-.custom-card {
-  clip-path: polygon(100% 0, 100% 95%, 95% 100%, 0 100%, 0 46%, 0 10%, 10% 0);
-}
-.card-angle {
-  clip-path: polygon(0 33%, 33% 0, 100% 0, 0% 100%);
-}
-.custom-range {
-  -webkit-appearance: none;
-  width: 100%;
-  height: 2px; /* Linea sottile */
-  background: transparent; /* Nasconde il riempimento */
-  cursor: pointer;
-  outline: none;
-}
-
-/* Track (la linea) */
-.custom-range::-webkit-slider-runnable-track {
-  height: 2px;
-  background-color: #888; /* Colore linea */
-}
-
-/* Thumb (pallino) */
-.custom-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  height: 14px;
-  width: 14px;
-  border-radius: 50%;
-  background: white; /* Colore del pallino */
-  border: none;
-  margin-top: -6px; /* Allinea il pallino verticalmente con la linea */
-}
-
-/* Firefox */
-.custom-range::-moz-range-track {
-  height: 2px;
-  background-color: #888;
-}
-
-.custom-range::-moz-range-thumb {
-  height: 14px;
-  width: 14px;
-  border-radius: 50%;
-  background: white;
-  border: none;
-}
-
-/* Edge */
-.custom-range::-ms-track {
-  height: 2px;
-  background: transparent;
-  border-color: transparent;
-  color: transparent;
-}
-
-.custom-range::-ms-fill-lower {
-  background: transparent;
-}
-
-.custom-range::-ms-fill-upper {
-  background: transparent;
-}
-
-.custom-range::-ms-thumb {
-  height: 14px;
-  width: 14px;
-  border-radius: 50%;
-  background: white;
-  border: none;
-}
-
 .loading-pulse {
   animation: pulse 2s ease-in-out infinite;
 }
@@ -131,11 +59,12 @@ body {
   50% { opacity: 1; }
 }
 
-/* Artemis button animations */
-@keyframes artemis-border-spin {
+@keyframes spin-360 {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Artemis button animations */
 @keyframes artemis-star-fall {
   0% { transform: translateY(-4px); opacity: 0; }
   15% { opacity: 1; }
@@ -154,10 +83,6 @@ body {
 }
 
 /* Explore button animations */
-@keyframes explore-border-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 @keyframes explore-star-fall {
   0% { transform: translateY(-4px); opacity: 0; }
   15% { opacity: 1; }

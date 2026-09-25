@@ -1,53 +1,50 @@
 import { useState, useContext, useRef, useMemo, useEffect } from "react";
-import { ScaleContext } from "../../context/contexts";
+import { ScaleContext, ArtemisModeContext } from "../../context/contexts";
 import { EphemerisContext } from "../../context/ephemeris";
-import { ArtemisModeContext } from "../../context/artemisMode";
-import { useLoader, useThree, useFrame } from "@react-three/fiber";
+import { useLoader, useFrame } from "@react-three/fiber";
 import { CelestialBody } from "../../data";
-import { blendMoonPosition, blendRadius, KM_PER_UNIT, poleToQuaternion, getSpinAngle, getEarthSpinAngle } from "../../helper/units";
+import { blendRadius, poleToQuaternion, getSpinAngle, getEarthSpinAngle } from "../../helper/units";
+import { planetPosition, hasRenderedRings, SATURN_RING_INNER, SATURN_RING_OUTER } from "../../helper/bodyPosition";
 import Moon from "../moons/Moon";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { BodySelectionContext } from "../../context/bodySelection";
 
+const TEXTURES: Record<string, string> = {
+  mercury: "2k_mercury.jpg",
+  venus: "2k_venus_surface.jpg",
+  earth: "2k_earth_daymap.jpg",
+  mars: "2k_mars.jpg",
+  jupiter: "2k_jupiter.jpg",
+  saturn: "2k_saturn.jpg",
+  uranus: "2k_uranus.jpg",
+  neptune: "2k_neptune.jpg",
+};
+
 interface PlanetProps {
-  map: string;
-  position: THREE.Vector3 | [x: number, y: number, z: number];
-  size: number;
   planetObj: CelestialBody;
   starObj: CelestialBody;
   solarSystemVisible: boolean;
 }
 
 export default function Planet({
-  map,
-  position,
-  size,
   planetObj,
   starObj,
   solarSystemVisible,
 }: PlanetProps) {
   const scaleCtx = useContext(ScaleContext);
   if (!scaleCtx) throw new Error("Must be within ScaleProvider");
-  const { blend } = scaleCtx;
+  const { blendRef } = scaleCtx;
   const { positions } = useContext(EphemerisContext);
   const { active: artemisActive } = useContext(ArtemisModeContext);
   const { selectBody } = useContext(BodySelectionContext);
-  const isEarth = map === "earth";
-  const isSaturn = map === "saturn";
+  const isEarth = planetObj.map === "earth";
+  const isSaturn = hasRenderedRings(planetObj);
 
-  const textureMap: Record<string, string> = {
-    mercury: "2k_mercury.jpg",
-    venus: "2k_venus_surface.jpg",
-    earth: "2k_earth_daymap.jpg",
-    mars: "2k_mars.jpg",
-    jupiter: "2k_jupiter.jpg",
-    saturn: "2k_saturn.jpg",
-    uranus: "2k_uranus.jpg",
-    neptune: "2k_neptune.jpg",
-  };
-  const texture = textureMap[map] ?? "2k_earth_daymap.jpg";
+  const texture = TEXTURES[planetObj.map] ?? "2k_earth_daymap.jpg";
 
+  // Hooks can't be conditional: non-Earth/non-Saturn planets reuse their
+  // own (already cached) texture for the unused slots
   const colorMap = useLoader(THREE.TextureLoader, `/${texture}`);
   const nightMap = useLoader(
     THREE.TextureLoader,
@@ -62,26 +59,24 @@ export default function Planet({
     isSaturn ? "/2k_saturn_ring_alpha.png" : `/${texture}`
   );
 
+  const { poleRA, poleDec } = planetObj.info;
   const poleQuat = useMemo(() => {
-    const { poleRA, poleDec } = planetObj.info;
     if (poleRA != null && poleDec != null) {
       return poleToQuaternion(poleRA, poleDec);
     }
     return new THREE.Quaternion();
-  }, [planetObj.info.poleRA, planetObj.info.poleDec]);
+  }, [poleRA, poleDec]);
 
   const ringGeo = useMemo(() => {
     if (!isSaturn) return null;
-    const innerR = 1.28;
-    const outerR = 2.41;
-    const geo = new THREE.RingGeometry(innerR, outerR, 64);
+    const geo = new THREE.RingGeometry(SATURN_RING_INNER, SATURN_RING_OUTER, 64);
     const pos = geo.attributes.position;
     const uv = geo.attributes.uv;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
       const r = Math.sqrt(x * x + y * y);
-      uv.setXY(i, (r - innerR) / (outerR - innerR), 0.5);
+      uv.setXY(i, (r - SATURN_RING_INNER) / (SATURN_RING_OUTER - SATURN_RING_INNER), 0.5);
     }
     return geo;
   }, [isSaturn]);
@@ -97,75 +92,53 @@ export default function Planet({
   const cloudGeo = useMemo(() => new THREE.SphereGeometry(1, 64, 64), []);
   useEffect(() => () => { sphereGeo.dispose(); cloudGeo.dispose(); }, [sphereGeo, cloudGeo]);
 
+  const groupRef = useRef<THREE.Group>(null);
   const spinRef = useRef<THREE.Group>(null);
+  const sphereRef = useRef<THREE.Mesh>(null);
+  const cloudRef = useRef<THREE.Mesh>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const labelRef = useRef<THREE.Group>(null);
 
-  useFrame(() => {
-    if (!spinRef.current) return;
-    if (isEarth) {
-      spinRef.current.rotation.y = getEarthSpinAngle(new Date());
-    } else if (planetObj.info.spinW0 != null && planetObj.info.spinRate != null) {
-      spinRef.current.rotation.y = getSpinAngle(
-        planetObj.info.spinW0,
-        planetObj.info.spinRate,
-        new Date()
-      );
+  const [labelVisible, setLabelVisible] = useState(false);
+
+  useFrame(({ camera }) => {
+    const blend = blendRef.current;
+
+    // Position and size follow the scale blend without re-rendering
+    if (groupRef.current) {
+      groupRef.current.position.set(...planetPosition(planetObj, starObj, positions, blend));
     }
-  });
+    const size = blendRadius(planetObj.radius, blend);
+    sphereRef.current?.scale.setScalar(size);
+    cloudRef.current?.scale.setScalar(size + 0.002);
+    ringRef.current?.scale.setScalar(size);
+    labelRef.current?.position.set(0, 0, size * 2.5);
 
-  const moons = planetObj.children.map((moon) => {
-    let moonPosition: [number, number, number];
-
-    if (
-      positions &&
-      positions[moon.horizonsId] &&
-      positions[planetObj.horizonsId]
-    ) {
-      const moonPos = positions[moon.horizonsId];
-      const planetPos = positions[planetObj.horizonsId];
-      // Relative position in km
-      const relX = moonPos.x - planetPos.x;
-      const relY = moonPos.y - planetPos.y;
-      const relZ = moonPos.z - planetPos.z;
-      moonPosition = blendMoonPosition(relX, relY, relZ, blend);
-    } else {
-      const offset =
-        moon.distanceFromParent / KM_PER_UNIT +
-        blendRadius(planetObj.radius, blend);
-      moonPosition = [offset, offset, 0];
+    if (spinRef.current) {
+      if (isEarth) {
+        spinRef.current.rotation.y = getEarthSpinAngle(new Date());
+      } else if (planetObj.info.spinW0 != null && planetObj.info.spinRate != null) {
+        spinRef.current.rotation.y = getSpinAngle(
+          planetObj.info.spinW0,
+          planetObj.info.spinRate,
+          new Date()
+        );
+      }
     }
 
-    const moonSize = blendRadius(moon.radius, blend);
-
-    return (
-      <Moon
-        position={moonPosition}
-        size={moonSize}
-        moonObj={moon}
-        key={`${starObj.id}-${planetObj.id}-${moon.id}`}
-      />
-    );
-  });
-
-  const [visible, setVisible] = useState(false);
-  const { camera } = useThree();
-  const planetPosRef = useRef(new THREE.Vector3());
-
-  useFrame(() => {
-    planetPosRef.current.set(
-      ...(position as [number, number, number])
-    );
-    const distance = camera.position.distanceTo(planetPosRef.current);
-    const shouldBeVisible = distance > 100;
-    if (shouldBeVisible !== visible) {
-      setVisible(shouldBeVisible);
+    if (groupRef.current) {
+      const shouldShowLabel = camera.position.distanceTo(groupRef.current.position) > 100;
+      if (shouldShowLabel !== labelVisible) {
+        setLabelVisible(shouldShowLabel);
+      }
     }
   });
 
   return (
-    <group position={position}>
+    <group ref={groupRef}>
       <group quaternion={poleQuat}>
         {ringGeo && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={ringGeo} scale={[size, size, size]}>
+          <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} geometry={ringGeo}>
             <meshStandardMaterial
               map={ringTexture}
               transparent
@@ -177,7 +150,7 @@ export default function Planet({
         <group ref={spinRef}>
           {isEarth ? (
             <group>
-              <mesh geometry={sphereGeo} scale={[size, size, size]} onClick={() => selectBody(planetObj.id)}>
+              <mesh ref={sphereRef} geometry={sphereGeo} onClick={() => selectBody(planetObj.id)}>
                 <meshStandardMaterial
                   map={colorMap}
                   emissiveMap={nightMap}
@@ -185,7 +158,7 @@ export default function Planet({
                   emissive="#ffffff"
                 />
               </mesh>
-              <mesh geometry={cloudGeo} scale={[size + 0.002, size + 0.002, size + 0.002]}>
+              <mesh ref={cloudRef} geometry={cloudGeo}>
                 <meshStandardMaterial
                   map={cloudMap}
                   transparent={true}
@@ -195,26 +168,35 @@ export default function Planet({
               </mesh>
             </group>
           ) : (
-            <mesh geometry={sphereGeo} scale={[size, size, size]} onClick={() => selectBody(planetObj.id)}>
+            <mesh ref={sphereRef} geometry={sphereGeo} onClick={() => selectBody(planetObj.id)}>
               <meshStandardMaterial map={colorMap} />
             </mesh>
           )}
         </group>
       </group>
 
-      {solarSystemVisible && ((visible && !artemisActive) || (artemisActive && isEarth)) ? (
-        <Html center className="noselect" position={[0, 0, size * 2.5]}>
-          <div
-            className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.6)] uppercase font-mono whitespace-nowrap cursor-pointer hover:text-white transition-colors pointer-events-auto"
-            onClick={() => selectBody(planetObj.id)}
-          >
-            {planetObj.name}
-          </div>
-        </Html>
-      ) : null}
+      <group ref={labelRef}>
+        {solarSystemVisible && ((labelVisible && !artemisActive) || (artemisActive && isEarth)) ? (
+          <Html center className="noselect">
+            <button
+              type="button"
+              className="text-[9px] tracking-[2px] text-[rgba(255,255,255,0.6)] uppercase font-mono whitespace-nowrap cursor-pointer hover:text-white focus-visible:text-white transition-colors pointer-events-auto"
+              onClick={() => selectBody(planetObj.id)}
+            >
+              {planetObj.name}
+            </button>
+          </Html>
+        ) : null}
+      </group>
 
       {/* Moons outside rotation group — orbit is not affected by axial tilt */}
-      {moons}
+      {planetObj.children.map((moon) => (
+        <Moon
+          key={`${starObj.id}-${planetObj.id}-${moon.id}`}
+          moonObj={moon}
+          planetObj={planetObj}
+        />
+      ))}
     </group>
   );
 }

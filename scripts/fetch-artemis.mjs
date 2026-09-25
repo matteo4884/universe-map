@@ -152,7 +152,10 @@ async function main() {
   const publicDir = path.join(process.cwd(), "public", "data");
   const dataDir = fs.existsSync(distDir) ? distDir : publicDir;
   const outFile = path.join(dataDir, "artemis-live.json");
-  fs.writeFileSync(outFile, JSON.stringify(output));
+  // Temp file + rename: clients polling mid-write never get a truncated JSON
+  const tmpFile = `${outFile}.tmp`;
+  fs.writeFileSync(tmpFile, JSON.stringify(output));
+  fs.renameSync(tmpFile, outFile);
 
   await log(`${now.toISOString()} ${status} — ${ok.join(", ")}`);
   console.log(`[fetch-artemis] ${status}`);

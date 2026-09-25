@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { ArtemisModeContext } from "../../context/artemisMode";
+import { ArtemisModeContext } from "../../context/contexts";
 
 export default function ArtemisButton() {
   const { mission, active, activate } = useContext(ArtemisModeContext);
@@ -30,7 +30,7 @@ export default function ArtemisButton() {
           {/* Rotating conic gradient border */}
           <div
             className="absolute inset-0"
-            style={{ animation: "artemis-border-spin 4s linear infinite" }}
+            style={{ animation: "spin-360 4s linear infinite" }}
           >
             <div
               className="w-[200%] h-[200%] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"

@@ -1,5 +1,6 @@
 import { useContext, useState } from "react";
-import { ArtemisModeContext } from "../../context/artemisMode";
+import { ArtemisModeContext, ArtemisCameraTarget } from "../../context/contexts";
+import { MissionConfig } from "../../config/missions";
 import { MdClose } from "react-icons/md";
 
 function formatMET(seconds: number): string {
@@ -16,6 +17,36 @@ function formatMET(seconds: number): string {
 function formatKm(km: number): string {
   if (km >= 1_000_000) return (km / 1_000_000).toFixed(2) + " M km";
   return Math.round(km).toLocaleString() + " km";
+}
+
+const BODY_LABELS: Record<Exclude<ArtemisCameraTarget, null>, string> = {
+  earth: "🌍 Earth",
+  orion: "🚀 Orion",
+  moon: "🌙 Moon",
+};
+
+/** Mission progress bar, from day 1 to splashdown */
+function MissionTimeline({ mission, met, className }: { mission: MissionConfig; met: number; className: string }) {
+  const durationSec = (mission.endDate.getTime() - mission.startDate.getTime()) / 1000;
+  const progress = Math.min(100, Math.max(0, (met / durationSec) * 100));
+  const totalDays = Math.ceil(durationSec / 86400);
+
+  return (
+    <div className="flex items-center gap-2 pointer-events-none">
+      <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY 1</span>
+      <div className={`relative h-[2px] bg-[rgba(255,255,255,0.1)] rounded ${className}`}>
+        <div
+          className="absolute top-0 left-0 h-full bg-[rgba(255,140,0,0.5)] rounded"
+          style={{ width: `${progress}%` }}
+        />
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full bg-[#ff9500] shadow-[0_0_6px_rgba(255,140,0,0.5)]"
+          style={{ left: `${progress}%` }}
+        />
+      </div>
+      <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY {totalDays}</span>
+    </div>
+  );
 }
 
 export default function ArtemisHUD() {
@@ -92,11 +123,13 @@ export default function ArtemisHUD() {
               width="360"
               height="203"
               src={`https://www.youtube.com/embed/${mission.youtubeVideoId}?autoplay=1&mute=1`}
+              title="NASA live coverage"
               allow="autoplay; encrypted-media"
               allowFullScreen
               className="rounded border border-[rgba(255,255,255,0.1)]"
             />
             <button
+              aria-label="Close video"
               onClick={() => setVideoOpen(false)}
               className="absolute top-1 right-1.5 text-[rgba(255,255,255,0.5)] hover:text-white text-xs cursor-pointer"
             >
@@ -133,7 +166,7 @@ export default function ArtemisHUD() {
                   : "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.6)] hover:text-white"
               }`}
             >
-              {body === "orion" ? "🚀 Orion" : body === "earth" ? "🌍 Earth" : "🌙 Moon"}
+              {BODY_LABELS[body]}
               {cameraLocked === body && " 🎯"}
             </button>
           ))}
@@ -154,26 +187,7 @@ export default function ArtemisHUD() {
         >
           {orionEnhanced ? "Switch to Real Scale Orion →" : "✓ Real Scale Orion — Switch to Enhanced"}
         </button>
-        {telemetry && (
-          <div className="flex items-center gap-2 pointer-events-none">
-            <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY 1</span>
-            <div className="relative w-40 h-[2px] bg-[rgba(255,255,255,0.1)] rounded">
-              <div
-                className="absolute top-0 left-0 h-full bg-[rgba(255,140,0,0.5)] rounded"
-                style={{
-                  width: `${Math.min(100, Math.max(0, (telemetry.met / ((mission.endDate.getTime() - mission.startDate.getTime()) / 1000)) * 100))}%`,
-                }}
-              />
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full bg-[#ff9500] shadow-[0_0_6px_rgba(255,140,0,0.5)]"
-                style={{
-                  left: `${Math.min(100, Math.max(0, (telemetry.met / ((mission.endDate.getTime() - mission.startDate.getTime()) / 1000)) * 100))}%`,
-                }}
-              />
-            </div>
-            <span className="text-[8px] text-[rgba(255,255,255,0.3)] tracking-[1px]">DAY {Math.ceil((mission.endDate.getTime() - mission.startDate.getTime()) / 86400000)}</span>
-          </div>
-        )}
+        {telemetry && <MissionTimeline mission={mission} met={telemetry.met} className="w-40" />}
       </div>
 
       {/* ============================== */}
@@ -192,12 +206,14 @@ export default function ArtemisHUD() {
           </div>
           <div className="flex gap-2">
             <button
+              aria-label="Open mission menu"
               onClick={() => setMenuOpen(true)}
               className="w-8 h-8 rounded-lg border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-white text-sm cursor-pointer"
             >
               ☰
             </button>
             <button
+              aria-label="Exit mission"
               onClick={deactivate}
               className="w-8 h-8 rounded-lg border border-[rgba(255,140,0,0.3)] bg-[rgba(255,140,0,0.08)] flex items-center justify-center text-[#ff9500] text-xs cursor-pointer"
             >
@@ -236,7 +252,7 @@ export default function ArtemisHUD() {
                   : "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.6)]"
               }`}
             >
-              {body === "orion" ? "🚀 Orion" : body === "earth" ? "🌍 Earth" : "🌙 Moon"}
+              {BODY_LABELS[body]}
               {cameraLocked === body && " 🎯"}
             </button>
           ))}
@@ -272,6 +288,7 @@ export default function ArtemisHUD() {
             </div>
             {/* Close */}
             <button
+              aria-label="Close menu"
               className="absolute top-3 right-4 text-white opacity-60 hover:opacity-100 cursor-pointer"
               onClick={() => setMenuOpen(false)}
             >
@@ -313,6 +330,7 @@ export default function ArtemisHUD() {
                   width="100%"
                   height="180"
                   src={`https://www.youtube.com/embed/${mission.youtubeVideoId}?autoplay=0&mute=1`}
+                  title="NASA live coverage"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
                   className="rounded border border-[rgba(255,255,255,0.1)]"
@@ -323,24 +341,7 @@ export default function ArtemisHUD() {
               {telemetry && (
                 <div className="mb-4">
                   <div className="text-[9px] text-[rgba(255,255,255,0.4)] tracking-[2px] uppercase mb-2">Mission Progress</div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] text-[rgba(255,255,255,0.3)]">DAY 1</span>
-                    <div className="relative flex-1 h-[2px] bg-[rgba(255,255,255,0.1)] rounded">
-                      <div
-                        className="absolute top-0 left-0 h-full bg-[rgba(255,140,0,0.5)] rounded"
-                        style={{
-                          width: `${Math.min(100, Math.max(0, (telemetry.met / ((mission.endDate.getTime() - mission.startDate.getTime()) / 1000)) * 100))}%`,
-                        }}
-                      />
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full bg-[#ff9500] shadow-[0_0_6px_rgba(255,140,0,0.5)]"
-                        style={{
-                          left: `${Math.min(100, Math.max(0, (telemetry.met / ((mission.endDate.getTime() - mission.startDate.getTime()) / 1000)) * 100))}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-[8px] text-[rgba(255,255,255,0.3)]">DAY {Math.ceil((mission.endDate.getTime() - mission.startDate.getTime()) / 86400000)}</span>
-                  </div>
+                  <MissionTimeline mission={mission} met={telemetry.met} className="flex-1" />
                 </div>
               )}
 

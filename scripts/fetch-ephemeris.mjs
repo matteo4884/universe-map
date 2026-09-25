@@ -181,6 +181,42 @@ async function main() {
     await delay(2000);
   }
 
+  if (Object.keys(positions).length === 0) {
+    console.error("No positions fetched! Aborting.");
+    process.exit(1);
+  }
+
+  const fs = await import("fs");
+  const path = await import("path");
+
+  // Write to file — dist/data in production, public/data in development
+  const distDir = path.join(process.cwd(), "dist", "data");
+  const publicDir = path.join(process.cwd(), "public", "data");
+  const outDir = fs.existsSync(distDir) ? distDir : publicDir;
+  fs.mkdirSync(outDir, { recursive: true });
+  const outFile = path.join(outDir, "ephemeris.json");
+
+  // Bodies that failed today keep yesterday's data instead of disappearing
+  const failed = BODIES.filter((b) => !positions[b.id] || !trajectories[b.id]);
+  if (failed.length > 0 && fs.existsSync(outFile)) {
+    try {
+      const previous = JSON.parse(fs.readFileSync(outFile, "utf8"));
+      for (const body of failed) {
+        if (!positions[body.id] && previous.positions?.[body.id]) {
+          positions[body.id] = previous.positions[body.id];
+        }
+        if (!trajectories[body.id] && previous.trajectories?.[body.id]) {
+          trajectories[body.id] = previous.trajectories[body.id];
+        }
+      }
+      console.log(
+        `\nKept previous data for: ${failed.map((b) => b.name).join(", ")}`
+      );
+    } catch (err) {
+      console.error(`Could not read previous ${outFile}: ${err.message}`);
+    }
+  }
+
   // Build output
   const output = {
     fetchedAt: now.toISOString(),
@@ -194,20 +230,11 @@ async function main() {
   console.log(`Positions: ${posCount}/${BODIES.length}`);
   console.log(`Trajectories: ${trajCount}/${BODIES.length}`);
 
-  if (posCount === 0) {
-    console.error("No positions fetched! Aborting.");
-    process.exit(1);
-  }
-
-  // Write to file — dist/data in production, public/data in development
-  const fs = await import("fs");
-  const path = await import("path");
-  const distDir = path.join(process.cwd(), "dist", "data");
-  const publicDir = path.join(process.cwd(), "public", "data");
-  const outDir = fs.existsSync(distDir) ? distDir : publicDir;
-  fs.mkdirSync(outDir, { recursive: true });
-  const outFile = path.join(outDir, "ephemeris.json");
-  fs.writeFileSync(outFile, JSON.stringify(output));
+  // Write to a temp file and rename: a client loading the page mid-write
+  // never receives a truncated JSON
+  const tmpFile = `${outFile}.tmp`;
+  fs.writeFileSync(tmpFile, JSON.stringify(output));
+  fs.renameSync(tmpFile, outFile);
 
   const sizeKB = (fs.statSync(outFile).size / 1024).toFixed(1);
   console.log(`\nSaved to ${outFile} (${sizeKB} KB)`);

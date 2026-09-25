@@ -2,7 +2,7 @@
 
 An interactive 3D visualization of our Solar System and the Milky Way galaxy, with real scale distances and proportions. Built to offer an educational and illustrative experience of the cosmos we live in.
 
-![Universe Map Preview](./public/preview.png)
+![Universe Map Preview](./docs/preview.jpg)
 
 **[universe.matteobeu.com](https://universe.matteobeu.com)**
 
@@ -11,7 +11,7 @@ An interactive 3D visualization of our Solar System and the Milky Way galaxy, wi
 - **Solar System** — All 8 planets with 18 major moons, accurate positions from NASA JPL Horizons
 - **Milky Way** — 150,000 star point cloud with procedural spiral arm structure
 - **Real Scale Mode** — Toggle between compressed (logarithmic) and true-to-life distances
-- **Live Mission Tracking** — Real-time spacecraft tracking with telemetry, 3D models, and mission HUD (currently featuring NASA's Artemis II)
+- **Mission Mode** — Real-time spacecraft tracking with telemetry, 3D model and mission HUD, shown while a configured mission is in flight (first used live for NASA's Artemis II, April 2026)
 - **Orbit Trajectories** — Rendered from actual ephemeris data
 - **Planet Details** — Explore panel with stats, atmosphere composition, and navigation through the celestial hierarchy
 - **Accurate Rotation** — Axial tilts from IAU pole coordinates, real-time spin rates, Earth ERA formula

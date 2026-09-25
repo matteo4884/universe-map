@@ -3,11 +3,6 @@ import * as THREE from "three";
 export const KM_PER_UNIT = 6371; // 1 Three.js unit = 1 Earth radius in realistic mode
 const LOG_POWER = 0.3;
 
-// Realistic mode: direct km to units conversion
-export function kmToUnits(km: number): number {
-  return km / KM_PER_UNIT;
-}
-
 // Log scale for distances (preserves direction, compresses magnitude)
 export function logScalePosition(
   x: number,
@@ -20,26 +15,40 @@ export function logScalePosition(
   return [(x / d) * dLog, (y / d) * dLog, (z / d) * dLog];
 }
 
-// Radii in "easy" mode: real proportions preserved, small bodies boosted 3x
-// Gas giants and Sun stay at real size (already big enough to see)
+// Radii in "easy" mode: small bodies boosted 3x, but never past RADIUS_BOOST_CAP,
+// so a boosted body can't outgrow one left at real size (Uranus vs Jupiter).
+// Monotonic: a bigger body is never drawn smaller than a smaller one.
+const RADIUS_BOOST = 3;
+const RADIUS_BOOST_CAP = 5;
+const MIN_RADIUS = 0.5;
+
 export function logScaleRadius(radiusKm: number): number {
   if (radiusKm <= 0) return 0;
   const realUnits = radiusKm / KM_PER_UNIT;
-  if (realUnits > 5) return realUnits; // Sun, Jupiter, Saturn: no boost needed
-  return Math.max(realUnits * 3, 0.5); // Boost 3x, min 0.5 units
+  return Math.max(
+    realUnits,
+    Math.min(realUnits * RADIUS_BOOST, RADIUS_BOOST_CAP),
+    MIN_RADIUS
+  );
 }
 
 // Log scale for moon-relative distances (lower power to keep moons close to parent)
 const LOG_POWER_MOON = 0.2;
 
+/**
+ * Moon offset from its planet in log mode. The compressed distance is measured
+ * from `baseUnits` (the planet's log radius, or its ring edge) rather than from
+ * the planet's center, so boosted planets never swallow their moons.
+ */
 export function logScaleMoonPosition(
   relX: number,
   relY: number,
-  relZ: number
+  relZ: number,
+  baseUnits: number
 ): [number, number, number] {
   const d = Math.sqrt(relX * relX + relY * relY + relZ * relZ);
   if (d === 0) return [0, 0, 0];
-  const dLog = Math.pow(d, LOG_POWER_MOON);
+  const dLog = baseUnits + Math.pow(d, LOG_POWER_MOON);
   return [(relX / d) * dLog, (relY / d) * dLog, (relZ / d) * dLog];
 }
 
@@ -48,9 +57,10 @@ export function blendMoonPosition(
   relX: number,
   relY: number,
   relZ: number,
-  blend: number
+  blend: number,
+  baseUnits: number
 ): [number, number, number] {
-  const logPos = logScaleMoonPosition(relX, relY, relZ);
+  const logPos = logScaleMoonPosition(relX, relY, relZ, baseUnits);
   const realPos: [number, number, number] = [
     relX / KM_PER_UNIT,
     relY / KM_PER_UNIT,
@@ -98,15 +108,13 @@ const SIN_OBL = Math.sin(OBLIQUITY);
 const _defaultPole = new THREE.Vector3(0, 1, 0);
 
 /**
- * Convert a planet's north-pole RA/Dec (equatorial J2000, degrees)
- * into a Three.js Quaternion that orients a sphere whose default
- * poles are along ±Y so that its north pole points in the correct
- * ecliptic direction (matching the Horizons coordinate system).
+ * Convert a north-pole RA/Dec (equatorial J2000, degrees) into a unit
+ * vector in ecliptic coordinates (matching the Horizons coordinate system).
  */
-export function poleToQuaternion(
+export function poleToEcliptic(
   poleRADeg: number,
   poleDecDeg: number
-): THREE.Quaternion {
+): THREE.Vector3 {
   const ra = poleRADeg * (Math.PI / 180);
   const dec = poleDecDeg * (Math.PI / 180);
 
@@ -116,12 +124,22 @@ export function poleToQuaternion(
   const zEq = Math.sin(dec);
 
   // Rotate to ecliptic (rotate around X-axis by +obliquity)
-  const xEcl = xEq;
-  const yEcl = yEq * COS_OBL + zEq * SIN_OBL;
-  const zEcl = -yEq * SIN_OBL + zEq * COS_OBL;
+  return new THREE.Vector3(
+    xEq,
+    yEq * COS_OBL + zEq * SIN_OBL,
+    -yEq * SIN_OBL + zEq * COS_OBL
+  ).normalize();
+}
 
-  const targetPole = new THREE.Vector3(xEcl, yEcl, zEcl).normalize();
-
+/**
+ * Quaternion that orients a sphere whose default poles are along ±Y
+ * so that its north pole points in the correct ecliptic direction.
+ */
+export function poleToQuaternion(
+  poleRADeg: number,
+  poleDecDeg: number
+): THREE.Quaternion {
+  const targetPole = poleToEcliptic(poleRADeg, poleDecDeg);
   return new THREE.Quaternion().setFromUnitVectors(_defaultPole, targetPole);
 }
 
@@ -138,7 +156,7 @@ const TWO_PI = 2 * Math.PI;
 export function getEarthSpinAngle(now: Date): number {
   const jd = now.getTime() / MS_PER_DAY + JD_UNIX_EPOCH;
   const du = jd - J2000_JD;
-  return TWO_PI * (0.7790572732640 + 1.00273781191135448 * du);
+  return TWO_PI * (0.7790572732640 + 1.0027378119113546 * du);
 }
 
 /**

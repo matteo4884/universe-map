@@ -3,7 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { generateGalaxy, SUN_GALAXY_POSITION } from "./generateGalaxy";
 import { Html } from "@react-three/drei";
-import { CameraNavigationContext } from "../../context/cameraNavigation";
+import { CameraNavigationContext } from "../../context/contexts";
 
 const vertexShader = `
   attribute float aSize;
