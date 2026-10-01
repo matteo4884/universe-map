@@ -25,8 +25,10 @@ export const ARM_COUNT = ARMS.length;
 const DUST_HEIGHT = 0.1;
 const DUST_SLAB = 0.6;
 const DUST_STEPS = 10;
-/** The dust map stores surface density divided by this, to fit 8 bits */
+/** The dust map stores √(surface density / this): 8 bits, fine steps where dust is thin */
 const DUST_MAP_MAX = 4;
+/** The Local Bubble: the Sun sits in a hot cavity almost free of dust, ~150 pc across (kpc) */
+const LOCAL_BUBBLE: [number, number] = [0.1, 0.25];
 /** Globular clusters: the first stars of the index range, one per cluster */
 const GLOBULAR_COUNT = 160;
 /** Young stars are born in groups: this many consecutive indices per cluster */
@@ -109,7 +111,7 @@ const DUST = /* glsl */ `
   #define DUST_HEIGHT ${glslFloat(DUST_HEIGHT)}
   #define DUST_SLAB ${glslFloat(DUST_SLAB)}
   #define DUST_STEPS ${DUST_STEPS}
-  uniform sampler2D uDust;    // surface density / ${DUST_MAP_MAX}, over ±uDustRadius (kpc)
+  uniform sampler2D uDust;    // √(surface density / ${DUST_MAP_MAX}), over ±uDustRadius (kpc)
   uniform float uDustRadius;
   uniform float uDustOpacity; // optical depth per kpc for unit density
   uniform vec3 uCameraKpc;    // camera, model axes, kpc
@@ -117,7 +119,7 @@ const DUST = /* glsl */ `
   /**
    * Optical depth along the segment from p to the camera, through the dust
    * layer only (clipped to |z| < DUST_SLAB), sampled more finely near the
-   * camera, where clouds cover more sky
+   * camera, where clouds cover more sky. Empty inside the Local Bubble
    */
   float dustDepth(vec3 p, float jitter) {
     vec3 d = uCameraKpc - p;
@@ -137,7 +139,9 @@ const DUST = /* glsl */ `
     for (int k = 0; k < DUST_STEPS; k++) {
       float x = (float(k) + jitter) / float(DUST_STEPS);
       vec3 q = p + d * (t1 - (t1 - t0) * x * x);
-      float column = texture(uDust, q.xy / (2.0 * uDustRadius) + 0.5).r * ${glslFloat(DUST_MAP_MAX)};
+      float v = texture(uDust, q.xy / (2.0 * uDustRadius) + 0.5).r;
+      float bubble = smoothstep(${glslFloat(LOCAL_BUBBLE[0])}, ${glslFloat(LOCAL_BUBBLE[1])}, length(q - vec3(0.0, -SUN_KPC, 0.0)));
+      float column = v * v * ${glslFloat(DUST_MAP_MAX)} * bubble;
       tau += column * exp(-abs(q.z) / DUST_HEIGHT) / (2.0 * DUST_HEIGHT) * 2.0 * x / float(DUST_STEPS) * len;
     }
     return tau * uDustOpacity;
@@ -242,8 +246,10 @@ export const galaxyStarVertexShader = /* glsl */ `
       color = vec3(1.0, 0.9, 0.72);
       dMag = -1.5;
     } else if (f < 0.1) {
-      // Bulge: boxy, aligned with the bar, old warm stars
-      pos = vec3(rotate(vec2(gauss(s), gauss(s) * 0.5), uBar.z), gauss(s) * 0.42);
+      // Bulge: boxy, aligned with the bar, old warm stars, reaching ~1.5 kpc
+      // above and below the plane (seen from Earth: the star clouds of
+      // Sagittarius, beyond the dust)
+      pos = vec3(rotate(vec2(gauss(s), gauss(s) * 0.5), uBar.z), laplace(s, 0.45));
       color = warm(s);
       dMag = 0.3;
     } else if (f < 0.172) {
@@ -385,7 +391,8 @@ export const splatFragmentShader = /* glsl */ `
 
 /**
  * Star-forming regions: clouds of hydrogen lit pink by young stars, along the
- * arms, 10–80 ly across. Extended objects: up close a ragged cloud of
+ * arms, 10–80 ly across. Faint: a few as bright as the Lagoon or Orion
+ * nebulae, most far dimmer. Extended objects: up close a soft cloud of
  * constant surface brightness, far away a point with the same total light.
  * Dimmed and reddened by the dust in front, like the stars.
  */
@@ -415,8 +422,10 @@ export const nebulaVertexShader = /* glsl */ `
     float px = 2.0 * radius * uScenePerKpc * uFocalPx / max(length(mvPosition.xyz), 1e-6);
     float tau = dustDepth(pos, rnd(s));
     float t = rnd(s);
-    vColor = vec3(1.0, 0.34 + t * 0.12, 0.5 + t * 0.12) * exp(-tau * vec3(0.75, 1.0, 1.35));
-    vFlux = uBrightness * armEnvelope(a, along) * min(1.0, (px * px) / (uMinPx * uMinPx));
+    // Hα red with some Hβ and oxygen light: a pale pink
+    vColor = vec3(1.0, 0.5 + t * 0.1, 0.6 + t * 0.1) * exp(-tau * vec3(0.75, 1.0, 1.35));
+    float lit = 0.1 + 0.9 * pow(rnd(s), 3.0);
+    vFlux = uBrightness * lit * armEnvelope(a, along) * min(1.0, (px * px) / (uMinPx * uMinPx));
     vSeed = rnd(s) * 100.0;
     gl_PointSize = clamp(px, uMinPx, uMaxPx);
   }
@@ -442,11 +451,11 @@ export const nebulaFragmentShader = /* glsl */ `
 
   void main() {
     vec2 c = gl_PointCoord - vec2(0.5);
-    // Ragged, filamentary: gas, not a disc
+    // Uneven, wispy: gas, not a disc
     vec2 q = c * 5.0 + vSeed;
     float wisps = noise(q) * 0.65 + noise(q * 2.3) * 0.35;
     float edge = max(1.0 - 4.0 * dot(c, c), 0.0);
-    float light = vFlux * exp(-dot(c, c) * 10.0) * edge * edge * smoothstep(0.35, 0.85, wisps) * 1.8;
+    float light = vFlux * exp(-dot(c, c) * 8.0) * edge * edge * (0.45 + 0.55 * smoothstep(0.3, 0.8, wisps));
     gl_FragColor = vec4(vColor * light, 1.0);
   }
 `;
@@ -521,8 +530,11 @@ export const bakeVertexShader = /* glsl */ `
 
 /**
  * Dust surface density across the disk (data, never shown): a diffuse
- * exponential layer, lanes along the arms' inner edges, clumpy clouds, and
- * the dense clouds around the center
+ * layer, clumpy and spread wider than the stars, swept out of the inner
+ * galaxy inside the bar; lanes along the arms' inner edges, where most of it
+ * gathers; the dense clouds of the very center. Calibrated on measured
+ * extinction (A_V): ~1 magnitude per kpc in the plane near the Sun, ~2
+ * toward Baade's Window, ~1 six degrees below the Galactic Center
  */
 export const dustBakeFragmentShader = /* glsl */ `
   ${COMMON}
@@ -559,7 +571,8 @@ export const dustBakeFragmentShader = /* glsl */ `
     float edge = 1.0 - smoothstep(12.0, 16.0, R);
     float clouds = fbm(p * 1.6);
 
-    float dust = 0.6 * exp(-R / 3.2) * edge * (0.25 + 1.5 * clouds * clouds);
+    float inner = 1.0 - exp(-R * R / 9.0);
+    float dust = 0.5 * exp(-R / 4.0) * inner * edge * (0.25 + 1.5 * clouds * clouds);
     for (int i = 0; i < ARM_COUNT; i++) {
       vec4 A = uArmA[i];
       float k = A.z;
@@ -569,15 +582,15 @@ export const dustBakeFragmentShader = /* glsl */ `
       float ridge = A.x * exp(along * k);
       float off = (R - ridge) * inversesqrt(1.0 + k * k);
       float w = uArmB[i].x * (1.0 + 0.05 * ridge);
-      // Lanes along the inner edge, ragged
+      // Lanes along the inner edge: narrow, dense, ragged
       float dOff = off + 0.85 * w;
-      float dw = 0.4 * w;
+      float dw = 0.25 * w;
       float lane = exp(-dOff * dOff / (2.0 * dw * dw));
       float ragged = 0.35 + 0.9 * fbm(vec2(along * ridge * 1.8, dOff * 7.0) + uArmB[i].w + 11.0);
-      dust += 0.9 * uArmB[i].y * armEnvelope(i, along) * lane * ragged;
+      dust += 2.9 * uArmB[i].y * armEnvelope(i, along) * lane * ragged;
     }
     // The Central Molecular Zone
-    dust += 1.0 * exp(-R * R / 0.06);
-    gl_FragColor = vec4(min(dust / ${glslFloat(DUST_MAP_MAX)}, 1.0), 0.0, 0.0, 1.0);
+    dust += 0.4 * exp(-R * R / 0.06);
+    gl_FragColor = vec4(sqrt(min(dust / ${glslFloat(DUST_MAP_MAX)}, 1.0)), 0.0, 0.0, 1.0);
   }
 `;

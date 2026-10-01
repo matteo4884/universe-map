@@ -29,7 +29,7 @@ const PARTICLE_MAG = -7.8;
 // as glow, gradually in between: far away, their stars can't be told apart
 const RESOLVED_KPC = new THREE.Vector2(12, 24);
 const NEBULAE = 6000;
-const NEBULA_BRIGHTNESS = 1.5e-3;
+const NEBULA_BRIGHTNESS = 5e-4;
 const NEBULA_MIN_PX = 1.5;
 const NEBULA_MAX_PX = 48;
 // Stars as points: fainter than this aren't drawn (fading over the last 1.5
@@ -43,9 +43,9 @@ const GLOW_BLUR = 1;
 const GLOW_BLUR_REACH = 4;
 const GLOW_SOFTENING = 3e-4;
 const GLOW_WHITE = 0.03;
-// Dust: optical depth per kpc through unit density (~1 magnitude per kpc in
-// the plane near the Sun)
-const DUST_OPACITY = 7;
+// Dust: optical depth per kpc through unit density (calibrated on measured
+// extinction, see dustBakeFragmentShader)
+const DUST_OPACITY = 1.6;
 // The dust map: 1024 px across 35 kpc (34 pc per pixel)
 const DUST_RADIUS_KPC = 17.5;
 const DUST_MAP_SIZE = 1024;
