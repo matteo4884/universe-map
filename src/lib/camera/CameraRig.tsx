@@ -270,8 +270,9 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
 
     function snapTo(view: Exclude<ViewDirection, null>) {
       const aspect = freeAspect();
-      if (view === "milkyway") {
-        startFlight(() => GALACTIC_CENTER, galaxyViewOffset(aspect, persp.fov), null);
+      if (view === "milkyway" || view === "milkyway-top" || view === "milkyway-side") {
+        const kind = view === "milkyway" ? "overview" : view === "milkyway-top" ? "top" : "side";
+        startFlight(() => GALACTIC_CENTER, galaxyViewOffset(aspect, persp.fov, kind), null);
         return;
       }
       // For "home", use TARGET blend (where the scale is going), not current

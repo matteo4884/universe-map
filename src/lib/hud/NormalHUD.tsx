@@ -1,17 +1,27 @@
-import { useContext, useEffect, useState } from "react";
-import { ScaleContext, CameraNavigationContext, EphemerisContext, LayersContext, Layer } from "../../context/contexts";
+import { useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  ScaleContext,
+  CameraNavigationContext,
+  EphemerisContext,
+  LayersContext,
+  Layer,
+  ViewDirection,
+} from "../../context/contexts";
 import { SHORTCUTS } from "../../helper/shortcuts";
 
 interface NormalHUDProps {
   infoOpen: boolean;
   setInfoOpen: (v: boolean) => void;
+  /** Where the camera is: the Solar System or the whole galaxy */
+  level: "system" | "galaxy";
 }
 
-const LAYER_LABELS: [Layer, string][] = [
-  ["orbits", "Orbits"],
-  ["spacecraft", "Spacecraft"],
-  ["belt", "Asteroid belt"],
-  ["labels", "Labels"],
+// The Solar System's layers make no sense in the galaxy view: only names do
+const LAYER_LABELS: [Layer, string, boolean][] = [
+  ["orbits", "Orbits", false],
+  ["spacecraft", "Spacecraft", false],
+  ["belt", "Asteroid belt", false],
+  ["labels", "Labels", true],
 ];
 
 function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
@@ -20,11 +30,11 @@ function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; la
       type="button"
       role="switch"
       aria-checked={on}
-      className="flex items-center gap-2 cursor-pointer group min-h-9"
+      className="w-full flex items-center justify-between gap-3 cursor-pointer group min-h-9 sm:min-h-8"
       onClick={onToggle}
     >
       <span className="text-[11px] text-white/70 group-hover:text-white tracking-[2px] uppercase transition-colors">{label}</span>
-      <span className={`w-9 h-5 rounded-full transition-colors relative ${on ? "bg-[#4a90d9]" : "bg-white/20"}`}>
+      <span className={`w-9 h-5 shrink-0 rounded-full transition-colors relative ${on ? "bg-[#4a90d9]" : "bg-white/20"}`}>
         <span className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
       </span>
     </button>
@@ -40,9 +50,6 @@ const IMAGE_CREDITS: [string, string][] = [
   ["Pluto, Charon", "NASA/JHUAPL/SwRI (New Horizons)"],
   ["Ceres", "NASA/JPL-Caltech/UCLA/MPS/DLR/IDA (Dawn)"],
 ];
-
-const presetClass =
-  "text-[11px] tracking-[2px] uppercase h-9 sm:h-8 px-3 rounded-md border border-white/20 bg-black/60 hover:bg-white/15 text-white/80 hover:text-white transition-colors cursor-pointer";
 
 function InfoModal({ onClose }: { onClose: () => void }) {
   const { ephemeris } = useContext(EphemerisContext);
@@ -126,9 +133,148 @@ function InfoModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function NormalHUD({ infoOpen, setInfoOpen }: NormalHUDProps) {
-  const scaleCtx = useContext(ScaleContext);
+const buttonClass =
+  "cursor-pointer transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/60";
+
+/** Small line icons (16 px grid, current color) */
+const ICONS: Record<string, ReactNode> = {
+  sun: (
+    <>
+      <circle cx="8" cy="8" r="2.6" fill="currentColor" />
+      <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+    </>
+  ),
+  galaxy: (
+    <>
+      <circle cx="8" cy="8" r="1.3" fill="currentColor" />
+      <path d="M9.4 8.4c1.7.9 1.6 3.6-.5 4.5-2.8 1.2-5.8-1-5.6-4" />
+      <path d="M6.6 7.6c-1.7-.9-1.6-3.6.5-4.5 2.8-1.2 5.8 1 5.6 4" />
+    </>
+  ),
+  overview: (
+    <>
+      <ellipse cx="8" cy="8" rx="6.5" ry="2.8" transform="rotate(-18 8 8)" />
+      <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+    </>
+  ),
+  top: (
+    <>
+      <circle cx="8" cy="8" r="6" />
+      <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+    </>
+  ),
+  side: (
+    <>
+      <path d="M1.5 8h13" />
+      <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M8 7v4.5" />
+      <circle cx="8" cy="4.8" r=".8" fill="currentColor" />
+    </>
+  ),
+  chevron: <path d="M4.5 6.5 8 10l3.5-3.5" />,
+  menu: <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />,
+  close: <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />,
+};
+
+function Icon({ name, className = "w-4 h-4" }: { name: keyof typeof ICONS; className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+      {ICONS[name]}
+    </svg>
+  );
+}
+
+const SectionTitle = ({ children }: { children: ReactNode }) => (
+  <div className="text-[10px] tracking-[3px] text-white/55 uppercase mb-1.5">{children}</div>
+);
+
+/** Solar System or the whole galaxy: shows where the camera is, flies to the other */
+function LevelSwitch({ level, onPick }: { level: NormalHUDProps["level"]; onPick: (level: NormalHUDProps["level"]) => void }) {
+  const levels = [
+    { id: "system", label: "Solar System", icon: "sun" },
+    { id: "galaxy", label: "Milky Way", icon: "galaxy" },
+  ] as const;
+  return (
+    <div role="group" aria-label="Scale" className="grid grid-cols-2 gap-0.5 p-0.5 rounded-lg bg-white/5 border border-white/10">
+      {levels.map(({ id, label, icon }) => {
+        const active = level === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onPick(id)}
+            className={`${buttonClass} flex items-center justify-center gap-1.5 h-9 sm:h-8 rounded-md text-[10px] tracking-[1.5px] uppercase ${
+              active ? "bg-white/15 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Icon name={icon} className="w-3.5 h-3.5 shrink-0" />
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const VIEWS = [
+  { name: "Overview", icon: "overview", system: "home", galaxy: "milkyway" },
+  { name: "Top", icon: "top", system: "top", galaxy: "milkyway-top" },
+  { name: "Side", icon: "side", system: "front", galaxy: "milkyway-side" },
+] as const satisfies readonly { name: string; icon: string; system: ViewDirection; galaxy: ViewDirection }[];
+
+/** The ways to frame the current level */
+function ViewButtons({ level, onView }: { level: NormalHUDProps["level"]; onView: (view: ViewDirection) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-1.5">
+      {VIEWS.map((v) => (
+        <button
+          key={v.name}
+          type="button"
+          onClick={() => onView(level === "galaxy" ? v.galaxy : v.system)}
+          className={`${buttonClass} flex flex-col items-center justify-center gap-1 h-12 rounded-md border border-white/10 bg-white/[0.03] hover:bg-white/10 text-white/75 hover:text-white text-[10px] tracking-[1.5px] uppercase`}
+        >
+          <Icon name={v.icon} />
+          {v.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** What's drawn: a disclosure, closed until needed */
+function ShowFilters({ level }: { level: NormalHUDProps["level"] }) {
   const { layers, setLayer } = useContext(LayersContext);
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className={`${buttonClass} w-full flex items-center justify-between min-h-9 sm:min-h-8 text-[10px] tracking-[3px] uppercase text-white/55 hover:text-white`}
+      >
+        Show
+        <Icon name="chevron" className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="grid grid-cols-1">
+          {LAYER_LABELS.filter(([, , inGalaxy]) => level === "system" || inGalaxy).map(([layer, label]) => (
+            <Toggle key={layer} label={label} on={layers[layer]} onToggle={() => setLayer(layer, !layers[layer])} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function NormalHUD({ infoOpen, setInfoOpen, level }: NormalHUDProps) {
+  const scaleCtx = useContext(ScaleContext);
   const cameraNav = useContext(CameraNavigationContext);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -144,60 +290,80 @@ export default function NormalHUD({ infoOpen, setInfoOpen }: NormalHUDProps) {
 
   if (!scaleCtx) return null;
   const { realisticMode, setRealisticMode } = scaleCtx;
+  const view = (direction: ViewDirection) => cameraNav?.setViewSnap(direction);
 
-  const presets = (["home", "top", "front"] as const).map((view) => (
-    <button key={view} onClick={() => cameraNav?.setViewSnap(view)} className={presetClass}>
-      {view === "home" ? "Overview" : view}
+  const infoButton = (
+    <button
+      type="button"
+      aria-label="About and shortcuts"
+      onClick={() => setInfoOpen(true)}
+      className={`${buttonClass} w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10`}
+    >
+      <Icon name="info" />
     </button>
-  ));
+  );
 
-  const scaleToggle = <Toggle label="Real scale" on={realisticMode} onToggle={() => setRealisticMode(!realisticMode)} />;
-
-  const filters = (
-    <fieldset>
-      <legend className="text-[10px] tracking-[3px] text-white/50 uppercase mb-1">Show</legend>
-      <div className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-5">
-        {LAYER_LABELS.map(([layer, label]) => (
-          <Toggle key={layer} label={label} on={layers[layer]} onToggle={() => setLayer(layer, !layers[layer])} />
-        ))}
+  const controls = (
+    <div className="flex flex-col gap-3">
+      <LevelSwitch level={level} onPick={(next) => view(next === "galaxy" ? "milkyway" : "home")} />
+      <div>
+        <SectionTitle>View</SectionTitle>
+        <ViewButtons level={level} onView={view} />
       </div>
-    </fieldset>
+      {level === "system" && (
+        <div className="border-t border-white/10 pt-1">
+          <Toggle label="Real scale" on={realisticMode} onToggle={() => setRealisticMode(!realisticMode)} />
+        </div>
+      )}
+      <div className="border-t border-white/10 pt-1">
+        <ShowFilters level={level} />
+      </div>
+    </div>
   );
 
   return (
     <>
       {infoOpen && <InfoModal onClose={() => setInfoOpen(false)} />}
 
-      <div className="fixed z-[999999999] top-4 left-4 font-mono pointer-events-none">
-        <h1 className="text-[12px] tracking-[6px] uppercase text-white/80 font-light">Universe Map</h1>
-
-        {/* Desktop */}
-        <div className="hidden sm:flex flex-col gap-3 mt-4 pointer-events-auto">
-          <div className="flex gap-1.5">{presets}</div>
-          <div className="flex items-center gap-5">{scaleToggle}</div>
-          <div className="w-fit rounded-lg bg-black/75 bg-blur-custom px-3 py-2 border border-white/10">{filters}</div>
-          <button onClick={() => setInfoOpen(true)} className={`${presetClass} w-fit`}>
-            Info & controls
-          </button>
+      <nav aria-label="Map controls" className="fixed z-[999999999] top-4 left-4 font-mono pointer-events-none">
+        {/* Desktop: one compact panel */}
+        <div className="hidden sm:block pointer-events-auto w-[256px] rounded-xl border border-white/10 bg-black/60 bg-blur-custom">
+          <div className="flex items-center justify-between pl-3.5 pr-1.5 pt-1.5">
+            <h1 className="text-[12px] tracking-[6px] uppercase text-white/85 font-light">Universe Map</h1>
+            {infoButton}
+          </div>
+          <div className="px-3 pb-3 pt-2">{controls}</div>
         </div>
 
-        {/* Mobile: everything behind one menu button */}
-        <div className="sm:hidden mt-3 pointer-events-auto">
-          <button aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)} className={presetClass}>
-            {menuOpen ? "Close" : "View"}
-          </button>
+        {/* Mobile: the title, the same panel behind a menu button */}
+        <div className="sm:hidden pointer-events-auto">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-expanded={menuOpen}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setMenuOpen(!menuOpen)}
+              className={`${buttonClass} w-9 h-9 flex items-center justify-center rounded-md border border-white/15 bg-black/60 bg-blur-custom text-white/80`}
+            >
+              <Icon name={menuOpen ? "close" : "menu"} />
+            </button>
+            <h1 className="text-[12px] tracking-[6px] uppercase text-white/85 font-light">Universe Map</h1>
+          </div>
           {menuOpen && (
-            <div className="mt-2 p-3 rounded-lg bg-black/80 bg-blur-custom border border-white/10 flex flex-col gap-2 w-[260px]">
-              <div className="flex flex-wrap gap-1.5">{presets}</div>
-              {scaleToggle}
-              {filters}
-              <button onClick={() => setInfoOpen(true)} className={`${presetClass} w-full`}>
-                Info & controls
+            <div className="mt-2 w-[min(86vw,280px)] rounded-xl border border-white/10 bg-black/80 bg-blur-custom p-3">
+              {controls}
+              <button
+                type="button"
+                onClick={() => setInfoOpen(true)}
+                className={`${buttonClass} w-full mt-3 pt-2 min-h-9 border-t border-white/10 flex items-center justify-between text-[10px] tracking-[3px] uppercase text-white/55 hover:text-white`}
+              >
+                About & shortcuts
+                <Icon name="info" />
               </button>
             </div>
           )}
         </div>
-      </div>
+      </nav>
     </>
   );
 }

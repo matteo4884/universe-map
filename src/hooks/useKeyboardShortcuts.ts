@@ -13,10 +13,12 @@ import { stepSpeed } from "../helper/timeSpeeds";
 interface Options {
   enabled: boolean;
   modalOpen: boolean;
+  /** Where the camera is: the views (O, T, S) apply to it */
+  level: "system" | "galaxy";
 }
 
 /** Global shortcuts (listed in helper/shortcuts.ts), ignored while typing */
-export function useKeyboardShortcuts({ enabled, modalOpen }: Options) {
+export function useKeyboardShortcuts({ enabled, modalOpen, level }: Options) {
   const { select, setPanelOpen } = useContext(SelectionContext);
   const cameraNav = useContext(CameraNavigationContext);
   const scale = useContext(ScaleContext);
@@ -31,6 +33,7 @@ export function useKeyboardShortcuts({ enabled, modalOpen }: Options) {
       if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
 
       const key = e.key.toLowerCase();
+      const galaxy = level === "galaxy";
       if (/^[0-9]$/.test(key)) {
         const body = getBodyBySlug(NUMBER_KEY_BODIES[Number(key)]);
         if (body) select(body, { fly: true });
@@ -40,14 +43,18 @@ export function useKeyboardShortcuts({ enabled, modalOpen }: Options) {
         case "escape":
           setPanelOpen(false);
           break;
+        case "g":
+          cameraNav?.setViewSnap(galaxy ? "home" : "milkyway");
+          break;
         case "o":
-          cameraNav?.setViewSnap("home");
+          cameraNav?.setViewSnap(galaxy ? "milkyway" : "home");
           break;
         case "t":
-          cameraNav?.setViewSnap("top");
+          cameraNav?.setViewSnap(galaxy ? "milkyway-top" : "top");
           break;
+        case "s":
         case "f":
-          cameraNav?.setViewSnap("front");
+          cameraNav?.setViewSnap(galaxy ? "milkyway-side" : "front");
           break;
         case "r":
           scale?.setRealisticMode(!scale.realisticMode);
@@ -74,5 +81,5 @@ export function useKeyboardShortcuts({ enabled, modalOpen }: Options) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [enabled, modalOpen, layers, setLayer, select, setPanelOpen, cameraNav, scale, time]);
+  }, [enabled, modalOpen, level, layers, setLayer, select, setPanelOpen, cameraNav, scale, time]);
 }

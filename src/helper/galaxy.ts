@@ -175,17 +175,26 @@ export function cameraUp(distanceFromSun: number, out: THREE.Vector3): THREE.Vec
   return out.copy(ECLIPTIC_NORTH).lerp(GALACTIC_NORTH, k * k * (3 - 2 * k)).normalize();
 }
 
-const VIEW_TILT = 35 * DEG; // from the galactic pole
 const VIEW_RADIUS_KPC = 16; // the disk out to the Outer Arm
 
-/** Camera offset from the Galactic Center that shows the whole galaxy, Sun's side nearest */
-export function galaxyViewOffset(aspect: number, fovDeg: number): THREE.Vector3 {
+/** The ways to look at the whole galaxy: tilted with the Sun's side nearest, face-on, edge-on */
+export type GalaxyView = "overview" | "top" | "side";
+
+// Angle from the galactic pole (top: nudged off it, so "up" stays defined)
+const VIEW_TILT: Record<GalaxyView, number> = { overview: 35 * DEG, top: 0.1 * DEG, side: 86 * DEG };
+
+/** Camera offset from the Galactic Center that shows the whole galaxy */
+export function galaxyViewOffset(aspect: number, fovDeg: number, view: GalaxyView = "overview"): THREE.Vector3 {
+  const tilt = VIEW_TILT[view];
   const radius = VIEW_RADIUS_KPC * KPC * GALAXY_SCALE;
   const halfHeight = Math.tan((fovDeg * DEG) / 2);
-  const dist = (1.12 * radius * Math.max(Math.cos(VIEW_TILT), 1 / aspect)) / halfHeight;
+  const dist = (1.12 * radius * Math.max(Math.cos(tilt), 1 / aspect)) / halfHeight;
+  // Overview and top from the Sun's side (the Sun below the center, as on maps),
+  // the edge-on view from a quarter turn away, the Sun off to one side
   const towardSun = GALACTIC_CENTER.clone().negate().normalize();
+  const across = view === "side" ? GALACTIC_NORTH.clone().cross(towardSun) : towardSun;
   return GALACTIC_NORTH.clone()
-    .multiplyScalar(Math.cos(VIEW_TILT))
-    .addScaledVector(towardSun, Math.sin(VIEW_TILT))
+    .multiplyScalar(Math.cos(tilt))
+    .addScaledVector(across, Math.sin(tilt))
     .multiplyScalar(dist);
 }

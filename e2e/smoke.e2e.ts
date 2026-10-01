@@ -12,7 +12,8 @@ function collectErrors(page: Page): string[] {
 
 async function waitForScene(page: Page) {
   await expect(page.locator("canvas")).toBeVisible();
-  await expect(page.getByText("Loading Solar System")).toHaveCount(0);
+  // The loading screen waits for the textures, the Milky Way and the compiled scene
+  await expect(page.getByRole("progressbar", { name: "Loading" })).toHaveCount(0, { timeout: 45000 });
 }
 
 test("the scene loads without errors", async ({ page }) => {
@@ -76,4 +77,23 @@ test("time controls travel through time and back to now", async ({ page }) => {
   await expect(bar.getByRole("button", { name: "Now" })).toBeVisible();
   await bar.getByRole("button", { name: "Now" }).click();
   await expect(bar).toContainText("LIVE");
+});
+
+test("the map controls fly between the Solar System and the Milky Way", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("/");
+  await waitForScene(page);
+  const controls = page.getByRole("navigation", { name: "Map controls" });
+  await expect(controls.getByRole("switch", { name: "Real scale" })).toBeVisible();
+
+  await controls.getByRole("button", { name: "Milky Way" }).click();
+  await expect(page.getByText("Sagittarius A*", { exact: true })).toBeVisible({ timeout: 15000 });
+  await expect(controls.getByRole("button", { name: "Milky Way" })).toHaveAttribute("aria-pressed", "true");
+  // Real scale only concerns the Solar System
+  await expect(controls.getByRole("switch", { name: "Real scale" })).toHaveCount(0);
+
+  await controls.getByRole("button", { name: "Solar System" }).click();
+  await expect(page.getByRole("button", { name: "Jupiter" }).first()).toBeVisible({ timeout: 15000 });
+  await expect(controls.getByRole("button", { name: "Solar System" })).toHaveAttribute("aria-pressed", "true");
+  expect(errors).toEqual([]);
 });

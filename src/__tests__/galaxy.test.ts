@@ -101,4 +101,11 @@ describe("camera", () => {
     expect(Math.acos(wide.clone().normalize().dot(GALACTIC_NORTH)) * DEG).toBeCloseTo(35, 6);
     expect(tall.length()).toBeGreaterThan(wide.length() * 2);
   });
+
+  test("face-on from above the pole, edge-on from within the plane", () => {
+    const top = galaxyViewOffset(16 / 9, 50, "top").normalize();
+    const side = galaxyViewOffset(16 / 9, 50, "side").normalize();
+    expect(top.dot(GALACTIC_NORTH)).toBeGreaterThan(0.999);
+    expect(Math.abs(side.dot(GALACTIC_NORTH))).toBeLessThan(0.1);
+  });
 });

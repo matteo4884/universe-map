@@ -15,6 +15,9 @@ import MobileSheet from './lib/cards/MobileSheet';
 import { useEphemeris } from './hooks/useEphemeris';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import LoadingScreen from './lib/LoadingScreen';
+import SceneReady from './lib/SceneReady';
+import { loadingStore } from './helper/loadingStore';
+import { useLoadingSteps } from './hooks/useLoadingSteps';
 import NormalHUD from './lib/hud/NormalHUD';
 import TimeBar from './lib/hud/TimeBar';
 import OnboardingHint from './lib/hud/OnboardingHint';
@@ -73,9 +76,11 @@ function SolarSystemVisibility({ onChange }: { onChange: (visible: boolean) => v
 function ArtemisAwareUI({
   infoOpen,
   setInfoOpen,
+  level,
 }: {
   infoOpen: boolean;
   setInfoOpen: (v: boolean) => void;
+  level: "system" | "galaxy";
 }) {
   const { active, hasPosition, mission } = useContext(ArtemisModeContext);
   const scaleCtx = useContext(ScaleContext);
@@ -142,7 +147,7 @@ function ArtemisAwareUI({
         </div>
       )}
 
-      {!active && <NormalHUD infoOpen={infoOpen} setInfoOpen={setInfoOpen} />}
+      {!active && <NormalHUD infoOpen={infoOpen} setInfoOpen={setInfoOpen} level={level} />}
       {!active && <CelestialCard />}
       {!active && <MobileSheet />}
       {!active && <TimeBar />}
@@ -163,7 +168,14 @@ function AppInner() {
   const [sceneFailed, setSceneFailed] = useState(false);
   const handleSceneError = useCallback(() => setSceneFailed(true), []);
 
-  useKeyboardShortcuts({ enabled: !artemisActive, modalOpen: infoOpen });
+  const sceneReady = useLoadingSteps().has("scene");
+  const level = solarSystemVisible ? "system" : "galaxy";
+
+  useKeyboardShortcuts({ enabled: !artemisActive, modalOpen: infoOpen, level });
+
+  useEffect(() => {
+    if (!ephemeris.loading) loadingStore.markDone("data");
+  }, [ephemeris.loading]);
 
   if (!webglAvailable || sceneFailed) {
     return <SceneErrorScreen webgl={webglAvailable} />;
@@ -171,7 +183,7 @@ function AppInner() {
 
   return (
     <EphemerisContext.Provider value={ephemeris}>
-      <LoadingScreen loading={ephemeris.loading} error={ephemeris.error} />
+      <LoadingScreen error={ephemeris.error} />
       <div className="noselect">
         <div id="canvas-container" className="w-screen h-screen">
           {!ephemeris.loading && (
@@ -217,13 +229,14 @@ function AppInner() {
                 <LabelProjector solarSystemVisible={solarSystemVisible} />
                 <GalaxyLabelProjector solarSystemVisible={solarSystemVisible} />
                 <SolarSystemVisibility onChange={setSolarSystemVisible} />
+                <SceneReady />
               </Canvas>
             </SceneErrorBoundary>
           )}
         </div>
         <SceneOverlay />
-        <OnboardingHint ready={!ephemeris.loading && !artemisActive} />
-        <ArtemisAwareUI infoOpen={infoOpen} setInfoOpen={setInfoOpen} />
+        <OnboardingHint ready={sceneReady && !artemisActive} />
+        <ArtemisAwareUI infoOpen={infoOpen} setInfoOpen={setInfoOpen} level={level} />
       </div>
     </EphemerisContext.Provider>
   );

@@ -18,6 +18,7 @@ import {
 import { ARMS, BAR, KPC, GALAXY_MATRIX, GALAXY_MATRIX_INVERSE, GALAXY_SCALE } from "../../helper/galaxy";
 import { CLOUD_BLOBS } from "../../helper/darkClouds";
 import { isSoftwareRenderer } from "../../helper/webgl";
+import { loadingStore } from "../../helper/loadingStore";
 
 // How many groups of stars make the galaxy: fewer on phones, far fewer without a GPU
 const STARS_DESKTOP = 2000000;
@@ -327,6 +328,24 @@ export default function MilkyWay() {
     gl.setClearColor(clearColor, clearAlpha);
     gl.setRenderTarget(previous);
   }, 0.5);
+
+  // Built once the dust is known and the glow's shaders are compiled
+  const gl = useThree((s) => s.gl);
+  const camera = useThree((s) => s.camera);
+  useEffect(() => {
+    if (!dust) return;
+    let cancelled = false;
+    Promise.all([gl.compileAsync(galaxyScene, camera), gl.compileAsync(blur.scene, blur.camera)])
+      .catch(() => {
+        // Compiled on first use instead
+      })
+      .then(() => {
+        if (!cancelled) loadingStore.markDone("galaxy");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dust, gl, camera, galaxyScene, blur]);
 
   // Until the dust is known the stars would shine through it: wait for it
   if (!dust) return null;

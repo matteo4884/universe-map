@@ -59,7 +59,8 @@ export const LayersContext = createContext<LayersContextType>({
   setLayer: () => {},
 });
 
-export type ViewDirection = "top" | "front" | "home" | "milkyway" | null;
+/** Views of the Solar System (home, top, front) and of the whole galaxy */
+export type ViewDirection = "top" | "front" | "home" | "milkyway" | "milkyway-top" | "milkyway-side" | null;
 
 export type CameraNavigationContextType = {
   flyTo: CelestialBody | null;

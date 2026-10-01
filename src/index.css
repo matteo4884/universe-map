@@ -64,6 +64,13 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* Loading screen: planets circling the Sun (SVG, around its origin) */
+.orrery-orbit {
+  animation: spin-360 linear infinite;
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+
 /* Artemis button animations */
 @keyframes artemis-star-fall {
   0% { transform: translateY(-4px); opacity: 0; }
@@ -116,6 +123,7 @@ body {
     display: none;
   }
   .loading-pulse,
+  .orrery-orbit,
   .onboarding-fade,
   [style*="spin-360"] {
     animation: none !important;

@@ -1,98 +1,123 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useProgress } from "@react-three/drei";
+import { LOAD_STEPS } from "../helper/loadingStore";
+import { useLoadingSteps } from "../hooks/useLoadingSteps";
 
-interface LoadingScreenProps {
-  loading: boolean;
-  error: boolean;
+// Whatever hangs, the scene shows after this long
+const GIVE_UP_MS = 30000;
+const FADE_MS = 700;
+
+/** The Sun and three planets on their orbits */
+function Orrery() {
+  return (
+    <svg viewBox="-50 -50 100 100" className="w-24 h-24 mx-auto mb-8 overflow-visible" aria-hidden="true">
+      <defs>
+        <radialGradient id="loading-sun">
+          <stop offset="0%" stopColor="#fff4d6" />
+          <stop offset="40%" stopColor="#ffb340" />
+          <stop offset="100%" stopColor="#ff9500" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {[18, 30, 44].map((r) => (
+        <circle key={r} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.6" />
+      ))}
+      <circle r="10" fill="url(#loading-sun)" />
+      <g className="orrery-orbit" style={{ animationDuration: "2.6s" }}>
+        <circle cx="18" r="1.6" fill="#b9b4ad" />
+      </g>
+      <g className="orrery-orbit" style={{ animationDuration: "5.4s", animationDelay: "-2s" }}>
+        <circle cx="30" r="2.2" fill="#4a90d9" />
+      </g>
+      <g className="orrery-orbit" style={{ animationDuration: "12s", animationDelay: "-7s" }}>
+        <circle cx="44" r="3" fill="#d9a066" />
+      </g>
+    </svg>
+  );
 }
 
-export default function LoadingScreen({ loading, error }: LoadingScreenProps) {
-  const [visible, setVisible] = useState(true);
-  const [fadeOut, setFadeOut] = useState(false);
-  const [showOffline, setShowOffline] = useState(false);
-  const { progress, active: assetsLoading } = useProgress();
-  const [assetsStarted, setAssetsStarted] = useState(false);
-
-  // Track that Three.js has started loading at least once
-  useEffect(() => {
-    if (assetsLoading) setAssetsStarted(true);
-  }, [assetsLoading]);
-
-  // Ready when: ephemeris loaded AND (assets finished loading OR never started after a grace period)
-  const allReady = !loading && assetsStarted && !assetsLoading && progress === 100;
+/**
+ * Covers the app until the scene is really ready (helper/loadingStore.ts):
+ * orbits, textures, the Milky Way, then the compiled scene and its first
+ * frames. Shows the step under way and how far along it all is.
+ */
+export default function LoadingScreen({ error }: { error: boolean }) {
+  const steps = useLoadingSteps();
+  const { progress: textureProgress } = useProgress();
+  const [gaveUp, setGaveUp] = useState(false);
+  const [phase, setPhase] = useState<"loading" | "fading" | "gone">("loading");
+  const [offline, setOffline] = useState(false);
+  const ready = steps.has("scene") || gaveUp;
 
   useEffect(() => {
-    if (!allReady) return;
-    if (error) setShowOffline(true);
-    setFadeOut(true);
-    const hideTimer = setTimeout(() => setVisible(false), 500);
-    const offlineTimer = setTimeout(() => setShowOffline(false), 3000);
+    const timer = window.setTimeout(() => setGaveUp(true), GIVE_UP_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    setPhase("fading");
+    if (error) setOffline(true);
+    const hideTimer = window.setTimeout(() => setPhase("gone"), FADE_MS);
+    const offlineTimer = window.setTimeout(() => setOffline(false), FADE_MS + 3000);
     return () => {
       clearTimeout(hideTimer);
       clearTimeout(offlineTimer);
     };
-  }, [allReady, error]);
+  }, [ready, error]);
 
-  if (!visible && !showOffline) return null;
+  if (phase === "gone" && !offline) return null;
+
+  const current = LOAD_STEPS.find(({ step }) => !steps.has(step));
+  const doneCount = LOAD_STEPS.filter(({ step }) => steps.has(step)).length;
+  const partial = current?.step === "textures" ? textureProgress / 100 : 0;
+  const percent = ready ? 100 : Math.round(((doneCount + partial) / LOAD_STEPS.length) * 100);
+  const fading = phase === "fading";
 
   return (
     <>
-      {visible && (
+      {phase !== "gone" && (
         <div
-          className={`fixed inset-0 z-[9999999999] bg-black flex items-center justify-center transition-opacity duration-500 ${
-            fadeOut ? "opacity-0" : "opacity-100"
+          className={`fixed inset-0 z-[9999999999] flex items-center justify-center bg-black transition-opacity ease-out ${
+            fading ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
+          style={{
+            transitionDuration: `${FADE_MS}ms`,
+            backgroundImage: "radial-gradient(ellipse at center, #0b1022 0%, #000 65%)",
+          }}
         >
-          <div className="text-center text-white font-mono">
-            {/* Orbit animation */}
-            <div className="relative w-20 h-20 mx-auto mb-8">
-              {/* Outer ring */}
+          <div
+            role="status"
+            aria-live="polite"
+            className={`text-center font-mono text-white transition-transform ease-out ${fading ? "scale-105" : ""}`}
+            style={{ transitionDuration: `${FADE_MS}ms` }}
+          >
+            <Orrery />
+            <div className="text-[13px] tracking-[8px] pl-[8px] uppercase font-light text-white/85">Universe Map</div>
+            <div className="mt-6 h-4 text-[11px] tracking-[3px] uppercase text-white/60">
+              {current?.label ?? "Ready"}
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Loading"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+              className="mt-3 mx-auto w-48 h-[2px] rounded-full bg-white/10 overflow-hidden"
+            >
               <div
-                className="absolute inset-0 rounded-full border border-[rgba(255,255,255,0.08)]"
+                className="h-full rounded-full bg-gradient-to-r from-[#4a90d9] to-white/80 transition-[width] duration-500 ease-out"
+                style={{ width: `${Math.max(4, percent)}%` }}
               />
-              {/* Orbiting dot */}
-              <div
-                className="absolute inset-0"
-                style={{ animation: "spin-360 3s linear infinite" }}
-              >
-                <div
-                  className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-                />
-              </div>
-              {/* Inner ring */}
-              <div
-                className="absolute inset-4 rounded-full border border-[rgba(255,255,255,0.05)]"
-              />
-              {/* Second orbiting dot */}
-              <div
-                className="absolute inset-4"
-                style={{ animation: "spin-360 2s linear infinite reverse" }}
-              >
-                <div
-                  className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[#4a90d9] shadow-[0_0_6px_rgba(74,144,217,0.6)]"
-                />
-              </div>
-              {/* Center dot (sun) */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-[#ff9500] shadow-[0_0_10px_rgba(255,150,0,0.5)]" />
-              </div>
             </div>
-
-            <div className="text-[12px] tracking-[6px] uppercase font-light opacity-80 mb-3">
-              Universe Map
-            </div>
-            <div className="text-[10px] tracking-[3px] uppercase text-white/50 loading-pulse">
-              Loading Solar System
-            </div>
-            <div className="mt-4 mx-auto w-32 h-[2px] bg-white/10 rounded overflow-hidden" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
-              <div className="h-full bg-white/60 transition-[width] duration-300" style={{ width: `${loading ? 5 : Math.max(5, progress)}%` }} />
-            </div>
+            <div className="mt-2 text-[10px] tracking-[2px] text-white/55 tabular-nums">{percent}%</div>
           </div>
-
         </div>
       )}
-      {showOffline && !visible && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999999999] bg-[#000000b3] bg-blur-custom text-[#888] text-[11px] px-4 py-2 rounded-lg uppercase tracking-wider font-mono">
+      {offline && phase === "gone" && (
+        <div
+          role="status"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999999999] bg-[#000000b3] bg-blur-custom text-white/70 text-[11px] px-4 py-2 rounded-lg uppercase tracking-wider font-mono"
+        >
           Using offline data
         </div>
       )}
