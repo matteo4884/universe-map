@@ -14,7 +14,7 @@ An interactive 3D visualization of our Solar System and the Milky Way galaxy, wi
 - **Asteroid belt** — Thousands of asteroids circling between Mars and Jupiter at their own speed
 - **Milky Way** — A barred spiral mapped on real measurements: the bar, the Perseus, Scutum–Centaurus, Sagittarius–Carina and Norma arms, the Sun in the Orion Spur, star-forming regions. Made only of stars and 3D dust, so it holds up from any angle: face-on, edge-on with its dark dust lane, or from Earth, where its band crosses the sky where it really does. Every star is drawn at its real brightness for its distance: 120,000 stars around the Sun plus 2 million groups of stars generated on the GPU, which from afar blend into the galaxy's glow like in a photograph
 - **Smooth flights** — From a planet to the whole galaxy and back: the camera zooms out, travels and zooms in at a steady pace across ten orders of magnitude
-- **Filters** — Show or hide orbits, spacecraft, the asteroid belt and labels; orbits fade away in close-ups
+- **Settings** — Show or hide orbits, moons, spacecraft, the asteroid belt, names, the Milky Way's stars, dark clouds and nebulae; adjust star brightness; orbits fade away in close-ups
 - **Real Scale Mode** — Toggle between compressed (logarithmic) and true-to-life distances, with a scale bar
 - **Explore panel** — Stats, atmosphere and live facts for every body: distance from Earth, light travel time, Moon phase
 - **Shareable links** — `?body=saturn` opens straight on Saturn; the back button walks through previous selections
