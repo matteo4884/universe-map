@@ -16,6 +16,7 @@ import {
   dustBakeFragmentShader,
 } from "./galaxyShaders";
 import { ARMS, BAR, KPC, GALAXY_MATRIX, GALAXY_MATRIX_INVERSE, GALAXY_SCALE } from "../../helper/galaxy";
+import { CLOUD_BLOBS } from "../../helper/darkClouds";
 import { isSoftwareRenderer } from "../../helper/webgl";
 
 // How many groups of stars make the galaxy: fewer on phones, far fewer without a GPU
@@ -35,7 +36,10 @@ const NEBULA_MAX_PX = 48;
 // Stars as points: fainter than this aren't drawn (fading over the last 1.5
 // magnitudes, like the limit of a long exposure)
 const STAR_MAG_LIMIT = 12;
-const STAR_GAIN = 1.25;
+const STAR_GAIN = 1.05;
+// Groups of stars seen as points are dimmer than their light alone would
+// make them: dense, they'd fill the band with a sheet of yellow
+const GROUP_POINT_FLUX = 0.6;
 // The galaxy's glow: blurred like any unresolved light (Gaussian, CSS px, out
 // to this many sigmas), then stretched, in light per CSS pixel (a magnitude-1
 // star = 1): linear below the softening, logarithmic above, white past white
@@ -50,6 +54,17 @@ const DUST_OPACITY = 1.6;
 const DUST_RADIUS_KPC = 17.5;
 const DUST_MAP_SIZE = 1024;
 const DUST_STRIPS = 4;
+
+// The dark clouds near the Sun: center and size, and their optical depths four per vector
+const cloudUniforms = () => ({
+  uClouds: { value: CLOUD_BLOBS.map((c) => new THREE.Vector4(...c.center, c.sigma)) },
+  uCloudDepth: {
+    value: Array.from(
+      { length: CLOUD_BLOBS.length / 4 },
+      (_, i) => new THREE.Vector4(...CLOUD_BLOBS.slice(i * 4, i * 4 + 4).map((c) => c.tau))
+    ),
+  },
+});
 
 const armUniforms = () => ({
   uArmA: { value: ARMS.map((a) => new THREE.Vector4(a.r, a.angle, a.tanPitch, a.span)) },
@@ -217,6 +232,7 @@ export default function MilkyWay() {
   const uniforms = useMemo(
     () => ({
       ...armUniforms(),
+      ...cloudUniforms(),
       uDust: { value: null as THREE.Texture | null },
       uDustRadius: { value: DUST_RADIUS_KPC },
       uDustOpacity: { value: DUST_OPACITY },
@@ -236,7 +252,7 @@ export default function MilkyWay() {
       uParticleMag: { value: PARTICLE_MAG + 2.5 * Math.log10(count / STARS_DESKTOP) },
       // As points, brightness is compressed (flux^0.42): to keep the band's
       // light with fewer groups, each must gain more than its share
-      uPointFlux: { value: Math.pow(STARS_DESKTOP / count, 0.58 / 0.42) },
+      uPointFlux: { value: GROUP_POINT_FLUX * Math.pow(STARS_DESKTOP / count, 0.58 / 0.42) },
     }),
     [uniforms, count]
   );

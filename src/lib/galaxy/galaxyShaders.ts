@@ -1,4 +1,5 @@
 import { ARMS, KPC, SUN_DISTANCE_KPC } from "../../helper/galaxy";
+import { CLOUD_BLOBS, CLOUD_REACH_KPC } from "../../helper/darkClouds";
 
 /**
  * The Milky Way is drawn from rules only, the same from every viewpoint:
@@ -16,6 +17,7 @@ import { ARMS, KPC, SUN_DISTANCE_KPC } from "../../helper/galaxy";
  * - dust as a 3D field: each star is dimmed and reddened by the dust between
  *   it and the camera, so dust lanes, the dark line of the edge-on disk and
  *   the rifts of the Milky Way seen from Earth all come from the same rule;
+ *   the real dark clouds around the Sun (darkClouds.ts) make the rift ragged;
  * - star-forming nebulae as glowing 3D clouds.
  * Model units are 100 ly; the shaders work in kpc.
  */
@@ -111,17 +113,71 @@ const DUST = /* glsl */ `
   #define DUST_HEIGHT ${glslFloat(DUST_HEIGHT)}
   #define DUST_SLAB ${glslFloat(DUST_SLAB)}
   #define DUST_STEPS ${DUST_STEPS}
+  #define CLOUD_COUNT ${CLOUD_BLOBS.length}
+  #define CLOUD_REACH ${glslFloat(Math.ceil(CLOUD_REACH_KPC * 100) / 100)}
   uniform sampler2D uDust;    // √(surface density / ${DUST_MAP_MAX}), over ±uDustRadius (kpc)
   uniform float uDustRadius;
   uniform float uDustOpacity; // optical depth per kpc for unit density
   uniform vec3 uCameraKpc;    // camera, model axes, kpc
+  uniform vec4 uClouds[CLOUD_COUNT];         // dark clouds near the Sun: center (kpc), σ (kpc)
+  uniform vec4 uCloudDepth[CLOUD_COUNT / 4]; // optical depth through each center, four per vector
+
+  float erfApprox(float x) {
+    return sign(x) * sqrt(1.0 - exp(-1.2732395 * x * x));
+  }
+  float hash3(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.zyx + 31.32);
+    return fract((p.x + p.y) * p.z);
+  }
+  float noise3(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(hash3(i), hash3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 0.0)), hash3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+      mix(mix(hash3(i + vec3(0.0, 0.0, 1.0)), hash3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 1.0)), hash3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y),
+      f.z
+    );
+  }
+  /** Clouds are lumpy and stringy: their dust thickens and thins across them (1–4 pc), average ~1 */
+  float lumps(vec3 q) {
+    float n = noise3(q * 350.0) * 0.55 + noise3(q * 900.0) * 0.3 + noise3(q * 2200.0) * 0.15;
+    return 0.05 + 6.0 * n * n * n;
+  }
+
+  /** Optical depth through the dark clouds near the Sun, from p to the camera: Gaussian blobs, integrated exactly */
+  float cloudDepth(vec3 p) {
+    vec3 d = uCameraKpc - p;
+    float len = length(d);
+    if (len < 1e-6) return 0.0;
+    vec3 u = d / len;
+    // Lines of sight passing far from the Sun's neighborhood miss them all
+    vec3 toSun = vec3(0.0, -SUN_KPC, 0.0) - p;
+    if (length(toSun - u * clamp(dot(toSun, u), 0.0, len)) > CLOUD_REACH) return 0.0;
+    float tau = 0.0;
+    for (int i = 0; i < CLOUD_COUNT; i++) {
+      vec4 c = uClouds[i];
+      vec3 m = c.xyz - p;
+      float t = dot(m, u);
+      vec3 q = m - u * t;
+      float perp2 = dot(q, q);
+      float s2 = c.w * c.w;
+      if (perp2 > 16.0 * s2) continue;
+      float k = 0.70710678 / c.w;
+      float through = exp(-0.5 * perp2 / s2) * 0.5 * (erfApprox((len - t) * k) + erfApprox(t * k));
+      tau += uCloudDepth[i / 4][i % 4] * through * lumps(p + u * t);
+    }
+    return tau;
+  }
 
   /**
-   * Optical depth along the segment from p to the camera, through the dust
-   * layer only (clipped to |z| < DUST_SLAB), sampled more finely near the
-   * camera, where clouds cover more sky. Empty inside the Local Bubble
+   * Optical depth along the segment from p to the camera: the dust layer
+   * (clipped to |z| < DUST_SLAB), sampled more finely near the camera, empty
+   * inside the Local Bubble; plus the dark clouds near the Sun
    */
   float dustDepth(vec3 p, float jitter) {
+    float clouds = cloudDepth(p);
     vec3 d = uCameraKpc - p;
     float t0 = 0.0;
     float t1 = 1.0;
@@ -131,9 +187,9 @@ const DUST = /* glsl */ `
       t0 = max(t0, min(ta, tb));
       t1 = min(t1, max(ta, tb));
     } else if (abs(p.z) > DUST_SLAB) {
-      return 0.0;
+      return clouds;
     }
-    if (t1 <= t0) return 0.0;
+    if (t1 <= t0) return clouds;
     float len = length(d) * (t1 - t0);
     float tau = 0.0;
     for (int k = 0; k < DUST_STEPS; k++) {
@@ -144,7 +200,7 @@ const DUST = /* glsl */ `
       float column = v * v * ${glslFloat(DUST_MAP_MAX)} * bubble;
       tau += column * exp(-abs(q.z) / DUST_HEIGHT) / (2.0 * DUST_HEIGHT) * 2.0 * x / float(DUST_STEPS) * len;
     }
-    return tau * uDustOpacity;
+    return tau * uDustOpacity + clouds;
   }
 `;
 
@@ -153,7 +209,7 @@ const PHOTOMETRY = /* glsl */ `
   // Dust dims blue light more than red: what shines through turns warmer
   const vec3 REDDENING = vec3(0.75, 1.0, 1.35);
   // Past this optical depth a star is too faint to tell its color: no deeper tint
-  const float REDDENING_MAX_DEPTH = 1.5;
+  const float REDDENING_MAX_DEPTH = 0.8;
 
   /** The light reaching the camera, relative to a magnitude-1 star (10^(−0.4·Δm)), and the reddened color */
   float photometry(float absMag, float parsecs, float tau, inout vec3 color) {
@@ -210,9 +266,10 @@ export const galaxyStarVertexShader = /* glsl */ `
   varying float vFlux;
   #endif
 
+  /** Old stars: mostly pale yellow-white, some orange giants */
   vec3 warm(inout uint s) {
-    float j = (rnd(s) - 0.5) * 0.08;
-    return vec3(1.0, 0.82 + j, 0.6 + j);
+    float t = rnd(s);
+    return mix(vec3(1.0, 0.93, 0.84), vec3(1.0, 0.8, 0.6), t * t);
   }
 
   /** Halo radius with density ∝ r^−3.5 beyond 1 kpc, slightly flattened */
