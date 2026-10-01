@@ -200,7 +200,7 @@ function AppInner() {
                 <OrionSpacecraft />
                 <ambientLight intensity={0} />
                 <EffectComposer>
-                  <Bloom intensity={2.5} luminanceThreshold={0.2} luminanceSmoothing={0.9} />
+                  <Bloom intensity={2.5} luminanceThreshold={1} luminanceSmoothing={0.3} />
                 </EffectComposer>
                 <OrbitControls
                   ref={controlsRef}

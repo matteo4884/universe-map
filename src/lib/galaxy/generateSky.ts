@@ -3,10 +3,11 @@ import { seededRandom } from "../../helper/random";
 
 /**
  * The stars of our night sky, placed in 3D around the Sun (model units, see
- * helper/galaxy.ts) with a real absolute magnitude each. MilkyWay draws them
- * with true photometry, so from Earth they look like the real sky (a few
- * bright stars, thousands of faint ones) and they brighten or fade as the
- * camera moves among them.
+ * helper/galaxy.ts) with a real absolute magnitude each, down to the faint
+ * ones that make the Milky Way's band. MilkyWay draws them with true
+ * photometry and the dust in front, so from Earth they look like the real sky
+ * (a few bright stars, thousands of faint ones crowding along the band) and
+ * they brighten or fade as the camera moves among them.
  */
 
 export interface SkyStarData {
@@ -15,9 +16,9 @@ export interface SkyStarData {
   absMags: Float32Array;
 }
 
-/** Faintest apparent magnitude kept (the naked eye reaches ~6.5) */
-export const SKY_MAG_LIMIT = 7.5;
-const STAR_COUNT = 24000;
+/** Faintest apparent magnitude kept, seen from the Sun (the naked eye reaches ~6.5) */
+export const SKY_MAG_LIMIT = 9.5;
+const STAR_COUNT = 120000;
 const PARSECS_PER_KPC = 1000;
 
 type StarClass = {

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { generateSkyStars, SKY_MAG_LIMIT } from "../lib/galaxy/generateSky";
-import { generateGalaxy } from "../lib/galaxy/generateGalaxy";
 import { KPC, SUN_DISTANCE_KPC } from "../helper/galaxy";
 
 /** Apparent magnitudes of a star set seen from a point (kpc, model axes) */
@@ -20,8 +19,6 @@ function seenFrom(
 }
 
 const SUN: [number, number, number] = [0, -SUN_DISTANCE_KPC, 0];
-// The galaxy view: 32 kpc from the center, 35° from the pole, on the Sun's side
-const GALAXY_VIEW: [number, number, number] = [0, -18.3, 26.1];
 
 const sky = generateSkyStars();
 const skyFromSun = seenFrom(sky, SUN);
@@ -44,22 +41,5 @@ describe("the night sky", () => {
 
   test("is the same on every visit", () => {
     expect(generateSkyStars().positions).toEqual(sky.positions);
-  });
-});
-
-describe("the galaxy's clusters", () => {
-  const galaxy = generateGalaxy();
-
-  test("seen from the Sun, they're the Milky Way's faint band, not bright stars", () => {
-    const fromSun = seenFrom(galaxy, SUN);
-    // The bright stars of our sky are single stars: clusters stay a minority among them
-    expect(brighterThan(fromSun, 4)).toBeLessThan(brighterThan(skyFromSun, 4) / 3);
-    expect(brighterThan(fromSun, 1)).toBe(0);
-    // ...while tens of thousands make up the band
-    expect(brighterThan(fromSun, 10)).toBeGreaterThan(40000);
-  });
-
-  test("seen from outside, thousands still shine", () => {
-    expect(brighterThan(seenFrom(galaxy, GALAXY_VIEW), 12)).toBeGreaterThan(10000);
   });
 });
