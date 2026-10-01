@@ -16,15 +16,15 @@ import { scenePosition, regionRadiiKm } from "../../helper/bodyPosition";
 import { getBodyBySlug } from "../../helper/bodies";
 import { systemViewDistance, homeOffset } from "../../helper/views";
 import { CelestialBody } from "../../data";
-import { SUN_GALAXY_POSITION } from "../galaxy/generateGalaxy";
+import { GALACTIC_CENTER, galaxyViewOffset, cameraUp } from "../../helper/galaxy";
 
 interface CameraRigProps {
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
 }
 
-export const DEFAULT_MAX_DISTANCE = 300000000000;
+// Far enough to frame the whole galaxy on a portrait screen
+export const DEFAULT_MAX_DISTANCE = 1500000000000;
 const ARTEMIS_MAX_DISTANCE = 150; // Limit zoom to Earth-Moon view
-const GALAXY_SCALE = 250000000;
 const PANEL_WIDTH = 380;
 const PANEL_MIN_SCREEN = 640; // the desktop panel exists from Tailwind's sm: breakpoint
 const WORLD_UP = new THREE.Vector3(0, 0, 1);
@@ -70,6 +70,8 @@ function chaseOffset(subject: THREE.Vector3, toward: THREE.Vector3, dist: number
   const sideDir = new THREE.Vector3().crossVectors(dir, WORLD_UP).normalize();
   return dir.multiplyScalar(-dist).addScaledVector(WORLD_UP, dist * up).addScaledVector(sideDir, dist * side);
 }
+
+const _up = new THREE.Vector3();
 
 export default function CameraRig({ controlsRef }: CameraRigProps) {
   const cameraNav = useContext(CameraNavigationContext);
@@ -178,14 +180,8 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
       } else if (view === "home") {
         offset = new THREE.Vector3(...homeOffset(targetBlend, aspect));
       } else {
-        target = new THREE.Vector3(...SUN_GALAXY_POSITION).multiplyScalar(-GALAXY_SCALE);
-        const galaxyDist = 280000000000;
-        const angle = Math.PI / 6; // 30° above galactic plane
-        offset = new THREE.Vector3(
-          galaxyDist * Math.sin(angle) * 0.3,
-          galaxyDist * Math.sin(angle),
-          galaxyDist * Math.cos(angle)
-        );
+        target = GALACTIC_CENTER.clone();
+        offset = galaxyViewOffset(aspect, persp.fov);
       }
       const dist = camera.position.distanceTo(target.clone().add(offset));
       const fixed = target.clone();
@@ -261,7 +257,7 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
       const end = f.endTarget() ?? f.startTarget;
       controls.target.lerpVectors(f.startTarget, end, eased);
       camera.position.lerpVectors(f.startPosition, end.clone().add(f.endOffset), eased);
-      camera.up.copy(WORLD_UP);
+      camera.up.copy(cameraUp(camera.position.length(), _up));
       camera.lookAt(controls.target);
 
       if (raw >= 1) {
@@ -271,20 +267,28 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
         lastFocusPos.current = f.focus ? end.clone() : null;
         lastFocusRadius.current = f.focus ? f.focus.radius() : 0;
       }
-    } else if (focus.current) {
-      // ---- Tracking: move with the body (time passing, scale changing) ----
-      const pos = focus.current.position();
-      if (pos && lastFocusPos.current) {
-        const radius = focus.current.radius();
-        const offset = camera.position.clone().sub(controls.target);
-        // Keep the same apparent size while the scale animates
-        if (lastFocusRadius.current > 0 && radius > 0 && radius !== lastFocusRadius.current) {
-          offset.multiplyScalar(radius / lastFocusRadius.current);
+    } else {
+      if (focus.current) {
+        // ---- Tracking: move with the body (time passing, scale changing) ----
+        const pos = focus.current.position();
+        if (pos && lastFocusPos.current) {
+          const radius = focus.current.radius();
+          const offset = camera.position.clone().sub(controls.target);
+          // Keep the same apparent size while the scale animates
+          if (lastFocusRadius.current > 0 && radius > 0 && radius !== lastFocusRadius.current) {
+            offset.multiplyScalar(radius / lastFocusRadius.current);
+          }
+          controls.target.add(pos.clone().sub(lastFocusPos.current));
+          camera.position.copy(controls.target).add(offset);
+          lastFocusPos.current = pos;
+          lastFocusRadius.current = radius;
         }
-        controls.target.add(pos.clone().sub(lastFocusPos.current));
-        camera.position.copy(controls.target).add(offset);
-        lastFocusPos.current = pos;
-        lastFocusRadius.current = radius;
+      }
+      // Ecliptic north is up among the planets, galactic north out in the galaxy
+      cameraUp(camera.position.length(), _up);
+      if (camera.up.distanceToSquared(_up) > 1e-14) {
+        camera.up.copy(_up);
+        camera.lookAt(controls.target);
       }
     }
 

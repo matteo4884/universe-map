@@ -8,6 +8,9 @@ export const overlayStore = {
   ring: null as HTMLElement | null,
   scaleBar: null as HTMLElement | null,
   scaleBarText: null as HTMLElement | null,
+  /** Galaxy view: names of the center and the arms, and the "you are here" marker */
+  galaxyLabels: new Map<string, HTMLElement>(),
+  sunMarker: null as HTMLElement | null,
 };
 
 type Listener = () => void;

@@ -53,6 +53,20 @@ test("exploring updates the URL and the back button walks back", async ({ page }
   await expect(panel.getByRole("heading", { name: "Jupiter" })).toBeVisible();
 });
 
+test("the galaxy view names its landmarks and flies back home", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("/?body=milky-way");
+  await waitForScene(page);
+  await expect(page.getByText("Sagittarius A*", { exact: true })).toBeVisible({ timeout: 15000 });
+  const marker = page.getByRole("button", { name: /Solar System, you are here/ });
+  await expect(marker).toBeVisible();
+  await marker.click();
+  // Once the planets are big enough to see, the marker gives way to them
+  await expect(marker).toBeHidden({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: "Jupiter" }).first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("time controls travel through time and back to now", async ({ page }) => {
   await page.goto("/");
   await waitForScene(page);

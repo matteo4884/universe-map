@@ -14,6 +14,11 @@ export function systemViewDistance(blend: number, aspect: number): number {
   return Math.abs(nx) * 1.4 * fit;
 }
 
+/** Neptune's orbit radius in scene units at this scale: how big the planetary system is */
+export function systemRadius(blend: number): number {
+  return Math.abs(blendPosition(NEPTUNE_DIST_KM, 0, 0, blend)[0]);
+}
+
 /** Overview camera offset from the Sun */
 export function homeOffset(blend: number, aspect: number): [number, number, number] {
   const d = systemViewDistance(blend, aspect);

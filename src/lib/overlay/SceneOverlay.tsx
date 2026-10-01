@@ -1,8 +1,11 @@
 import { useContext } from "react";
 import { CelestialBody } from "../../data";
-import { SelectionContext } from "../../context/contexts";
+import { SelectionContext, CameraNavigationContext } from "../../context/contexts";
 import { SCENE_BODIES } from "../../helper/bodies";
+import { GALAXY_LANDMARKS } from "../../helper/galaxy";
 import { overlayStore, hoverStore } from "./overlayStore";
+
+const TEXT_SHADOW = "0 0 4px #000, 0 0 8px #000";
 
 function register(map: Map<number, HTMLElement>, id: number) {
   return (el: HTMLElement | null) => {
@@ -24,6 +27,7 @@ function labelTone(body: CelestialBody): string {
  */
 export default function SceneOverlay() {
   const { select } = useContext(SelectionContext);
+  const cameraNav = useContext(CameraNavigationContext);
 
   const handlers = (body: CelestialBody) => ({
     onClick: () => select(body),
@@ -71,12 +75,55 @@ export default function SceneOverlay() {
           ref={register(overlayStore.labels, body.id)}
           type="button"
           className={`absolute left-0 top-0 px-1 leading-4 text-[11px] tracking-[2px] uppercase whitespace-nowrap pointer-events-auto cursor-pointer transition-colors hover:text-white focus-visible:text-white data-[active=true]:text-white ${labelTone(body)}`}
-          style={{ visibility: "hidden", textShadow: "0 0 4px #000, 0 0 8px #000" }}
+          style={{ visibility: "hidden", textShadow: TEXT_SHADOW }}
           {...handlers(body)}
         >
           {body.name}
         </button>
       ))}
+
+      {/* Galaxy view: the center and the arms */}
+      {GALAXY_LANDMARKS.map((l) => (
+        <div
+          key={`galaxy-${l.key}`}
+          ref={(el) => {
+            if (el) overlayStore.galaxyLabels.set(l.key, el);
+            else overlayStore.galaxyLabels.delete(l.key);
+          }}
+          className={`absolute left-0 top-0 text-[10px] leading-4 tracking-[3px] uppercase whitespace-nowrap text-white/55 ${
+            l.point ? "flex items-center gap-2 -ml-[3px] -mt-[3px]" : "-translate-x-1/2 -translate-y-1/2 text-center"
+          }`}
+          style={{ visibility: "hidden", textShadow: TEXT_SHADOW }}
+        >
+          {l.point && <span className="self-start w-[6px] h-[6px] rounded-full border border-white/70" />}
+          <span className="block">
+            {l.text}
+            {l.sub && <span className="block tracking-[1px] normal-case text-white/45">{l.sub}</span>}
+          </span>
+        </div>
+      ))}
+
+      {/* Galaxy view: where the Solar System is */}
+      <button
+        ref={(el) => {
+          overlayStore.sunMarker = el;
+        }}
+        type="button"
+        aria-label="Solar System, you are here: fly back"
+        onClick={() => cameraNav?.setViewSnap("home")}
+        className="group absolute left-0 top-0 flex items-start gap-2 -ml-[9px] -mt-[9px] pointer-events-auto cursor-pointer"
+        style={{ visibility: "hidden", textShadow: TEXT_SHADOW }}
+      >
+        <span className="relative w-[18px] h-[18px] rounded-full border border-[#ffd27a]/80 flex items-center justify-center transition-transform group-hover:scale-125">
+          <span className="absolute inset-0 rounded-full border border-[#ffd27a]/50 motion-safe:animate-ping" />
+          <span className="w-[4px] h-[4px] rounded-full bg-[#ffd27a] shadow-[0_0_6px_#ffd27a]" />
+        </span>
+        {/* Two lines centered on the ring */}
+        <span className="flex flex-col items-start leading-4 -mt-[7px]">
+          <span className="text-[11px] tracking-[2px] uppercase text-white/80 group-hover:text-white transition-colors">Solar System</span>
+          <span className="text-[10px] tracking-[2px] uppercase text-[#ffd27a]/80">You are here</span>
+        </span>
+      </button>
 
       {/* Scale bar (realistic scale) */}
       <div

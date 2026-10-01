@@ -1150,7 +1150,7 @@ export const MILKY_WAY: CelestialBody = {
       { label: "Age", value: "13.6 Gyr" },
       { label: "Arms", value: "4" },
       { label: "Rotation", value: "225 Myr" },
-      { label: "Sun dist.", value: "26,000 ly" },
+      { label: "Sun dist.", value: "26,700 ly" },
       { label: "Speed", value: "220 km/s" },
     ],
   },

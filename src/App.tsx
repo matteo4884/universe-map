@@ -19,8 +19,9 @@ import NormalHUD from './lib/hud/NormalHUD';
 import TimeBar from './lib/hud/TimeBar';
 import OnboardingHint from './lib/hud/OnboardingHint';
 import LabelProjector from './lib/overlay/LabelProjector';
+import GalaxyLabelProjector from './lib/overlay/GalaxyLabelProjector';
 import SceneOverlay from './lib/overlay/SceneOverlay';
-import { homeOffset } from './helper/views';
+import { homeOffset, systemRadius } from './helper/views';
 import { isWebGLAvailable } from './helper/webgl';
 import { SCENE_BODIES, SUN } from './helper/bodies';
 import { ArtemisModeProvider } from './context/artemisMode';
@@ -41,8 +42,9 @@ const BACKGROUND_COLOR = new THREE.Color(0, 0, 0);
 
 const INITIAL_CAMERA = homeOffset(0, window.innerWidth / window.innerHeight);
 
-// Beyond this distance the camera is in the galaxy view: hide the Solar System
-const SOLAR_SYSTEM_MAX_VIEW = 10000000;
+// Hide the Solar System once the planets' orbits are under a pixel: beyond
+// this many times Neptune's distance (so later in real scale, where it's bigger)
+const SOLAR_SYSTEM_HIDE_FACTOR = 2000;
 
 // Spheres rendered by <Body>: planets, dwarf planets and moons (spacecraft are markers, the belt is points)
 const SPHERE_BODIES = SCENE_BODIES.filter((b) => b.type === "planet" || b.type === "moon");
@@ -55,9 +57,11 @@ function SimClock() {
 }
 
 function SolarSystemVisibility({ onChange }: { onChange: (visible: boolean) => void }) {
+  const scale = useContext(ScaleContext);
   const visible = useRef(true);
   useFrame(({ camera }) => {
-    const next = camera.position.length() < SOLAR_SYSTEM_MAX_VIEW;
+    const blend = scale?.blendRef.current ?? 0;
+    const next = camera.position.length() < systemRadius(blend) * SOLAR_SYSTEM_HIDE_FACTOR;
     if (next !== visible.current) {
       visible.current = next;
       onChange(next);
@@ -179,7 +183,7 @@ function AppInner() {
                   position: INITIAL_CAMERA,
                   up: [0, 0, 1],
                   near: 0.0000001,
-                  far: 500000000000,
+                  far: 5000000000000,
                 }}
                 scene={{ background: BACKGROUND_COLOR }}
               >
@@ -211,6 +215,7 @@ function AppInner() {
                 />
                 <CameraRig controlsRef={controlsRef} />
                 <LabelProjector solarSystemVisible={solarSystemVisible} />
+                <GalaxyLabelProjector solarSystemVisible={solarSystemVisible} />
                 <SolarSystemVisibility onChange={setSolarSystemVisible} />
               </Canvas>
             </SceneErrorBoundary>
