@@ -39,7 +39,7 @@ const STAR_MAG_LIMIT = 12;
 const STAR_GAIN = 1.05;
 // Groups of stars seen as points are dimmer than their light alone would
 // make them: dense, they'd fill the band with a sheet of yellow
-const GROUP_POINT_FLUX = 0.6;
+const GROUP_POINT_FLUX = 0.5;
 // The galaxy's glow: blurred like any unresolved light (Gaussian, CSS px, out
 // to this many sigmas), then stretched, in light per CSS pixel (a magnitude-1
 // star = 1): linear below the softening, logarithmic above, white past white

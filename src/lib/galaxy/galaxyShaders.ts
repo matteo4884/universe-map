@@ -1,5 +1,5 @@
 import { ARMS, KPC, SUN_DISTANCE_KPC } from "../../helper/galaxy";
-import { CLOUD_BLOBS, CLOUD_REACH_KPC } from "../../helper/darkClouds";
+import { CLOUD_BLOBS, CLOUD_MAX_TAU, CLOUD_REACH_KPC } from "../../helper/darkClouds";
 
 /**
  * The Milky Way is drawn from rules only, the same from every viewpoint:
@@ -168,7 +168,8 @@ const DUST = /* glsl */ `
       float through = exp(-0.5 * perp2 / s2) * 0.5 * (erfApprox((len - t) * k) + erfApprox(t * k));
       tau += uCloudDepth[i / 4][i % 4] * through * lumps(p + u * t);
     }
-    return tau;
+    // Soft limit: the densest parts dim the stars behind, never black them out
+    return ${glslFloat(CLOUD_MAX_TAU)} * (1.0 - exp(-tau / ${glslFloat(CLOUD_MAX_TAU)}));
   }
 
   /**
@@ -241,6 +242,8 @@ const STAR_LOOK = /* glsl */ `
 
 /** The galaxy's light lands in its buffer as points 2 px wide, shared between the pixels around their exact position */
 const SPLAT_SIZE = "2.0";
+/** Share of the inner galaxy's groups drawn as points */
+const CORE_POINTS = 0.35;
 
 /**
  * Every vertex is a group of the galaxy's stars, generated from its index.
@@ -258,6 +261,7 @@ export const galaxyStarVertexShader = /* glsl */ `
   uniform float uParticleMag; // absolute magnitude of a group
   uniform float uScenePerParsec;
   uniform vec2 uResolved;     // camera distance (kpc): a point nearer than x, glow beyond y
+  #define CORE_POINTS ${glslFloat(CORE_POINTS)}
   varying vec3 vColor;
   #ifdef CRISP
   uniform float uPointFlux;   // with fewer groups, each point brighter: the band keeps its light
@@ -381,6 +385,9 @@ export const galaxyStarVertexShader = /* glsl */ `
     float flux = photometry(absMag, parsecs, tau, vColor);
     bool kept = rnd(s) < keep;
     #ifdef CRISP
+    // As points, the crowded inner galaxy (bulge, bar, inner disk) is thinned
+    // out: drawn whole it would fill the core seen from Earth with one compact block
+    kept = kept && rnd(s) < mix(CORE_POINTS, 1.0, smoothstep(1.5, 5.0, length(pos.xy)));
     float size;
     bool visible = starLook(flux * uPointFlux, vAlpha, size);
     vAlpha *= share;

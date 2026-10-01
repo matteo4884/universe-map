@@ -53,6 +53,11 @@ const CLUMPS = 20;
 const BLOBS_PER_CLUMP = 2;
 const MAG_PER_TAU = 1.0857;
 const DEG = Math.PI / 180;
+/**
+ * Optical depth the clouds approach but never pass (soft limit): behind the
+ * densest parts stars dim to ~10%, never vanish into black patches
+ */
+export const CLOUD_MAX_TAU = 2.2;
 
 /** Model position (kpc) seen from the Sun at a galactic longitude and latitude (deg) and distance (pc) */
 export function fromSun(l: number, b: number, pc: number): [number, number, number] {
@@ -170,5 +175,5 @@ export function cloudDepth(blobs: CloudBlob[], a: [number, number, number], b: [
     const through = Math.exp((-0.5 * perp2) / (c.sigma * c.sigma)) * 0.5 * (erf((len - t) * k) + erf(t * k));
     tau += c.tau * through * lumps(a[0] + u[0] * t, a[1] + u[1] * t, a[2] + u[2] * t);
   }
-  return tau;
+  return CLOUD_MAX_TAU * (1 - Math.exp(-tau / CLOUD_MAX_TAU));
 }
