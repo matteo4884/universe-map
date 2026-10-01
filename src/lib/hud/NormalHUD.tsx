@@ -16,12 +16,27 @@ interface NormalHUDProps {
   level: "system" | "galaxy";
 }
 
-// The Solar System's layers make no sense in the galaxy view: only names do
-const LAYER_LABELS: [Layer, string, boolean][] = [
-  ["orbits", "Orbits", false],
-  ["spacecraft", "Spacecraft", false],
-  ["belt", "Asteroid belt", false],
-  ["labels", "Labels", true],
+// What can be shown, by where it is
+const SETTINGS: { title: string; items: [Layer, string][] }[] = [
+  {
+    title: "Solar System",
+    items: [
+      ["orbits", "Orbits"],
+      ["moons", "Moons"],
+      ["spacecraft", "Spacecraft"],
+      ["belt", "Asteroid belt"],
+      ["labels", "Names"],
+    ],
+  },
+  {
+    title: "Milky Way",
+    items: [
+      ["galaxy", "Stars"],
+      ["clouds", "Dark clouds"],
+      ["nebulae", "Nebulae"],
+      ["galaxyNames", "Names"],
+    ],
+  },
 ];
 
 function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
@@ -228,29 +243,70 @@ const VIEWS = [
   { name: "Side", icon: "side", system: "front", galaxy: "milkyway-side" },
 ] as const satisfies readonly { name: string; icon: string; system: ViewDirection; galaxy: ViewDirection }[];
 
-/** The ways to frame the current level */
-function ViewButtons({ level, onView }: { level: NormalHUDProps["level"]; onView: (view: ViewDirection) => void }) {
+/** The ways to frame the current level; the one on screen stays lit until the camera moves otherwise */
+function ViewButtons({
+  level,
+  active,
+  onView,
+}: {
+  level: NormalHUDProps["level"];
+  active: ViewDirection;
+  onView: (view: ViewDirection) => void;
+}) {
   return (
     <div className="grid grid-cols-3 gap-1.5">
-      {VIEWS.map((v) => (
-        <button
-          key={v.name}
-          type="button"
-          onClick={() => onView(level === "galaxy" ? v.galaxy : v.system)}
-          className={`${buttonClass} flex flex-col items-center justify-center gap-1 h-12 rounded-md border border-white/10 bg-white/[0.03] hover:bg-white/10 text-white/75 hover:text-white text-[10px] tracking-[1.5px] uppercase`}
-        >
-          <Icon name={v.icon} />
-          {v.name}
-        </button>
-      ))}
+      {VIEWS.map((v) => {
+        const view = level === "galaxy" ? v.galaxy : v.system;
+        const on = active === view;
+        return (
+          <button
+            key={v.name}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onView(view)}
+            className={`${buttonClass} flex flex-col items-center justify-center gap-1 h-12 rounded-md border text-[10px] tracking-[1.5px] uppercase ${
+              on
+                ? "border-[#4a90d9]/70 bg-[#4a90d9]/20 text-white"
+                : "border-white/10 bg-white/[0.03] hover:bg-white/10 text-white/75 hover:text-white"
+            }`}
+          >
+            <Icon name={v.icon} />
+            {v.name}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-/** What's drawn: a disclosure, closed until needed */
-function ShowFilters({ level }: { level: NormalHUDProps["level"] }) {
+/** Brightness of the stars and the galaxy, as a share of the calibrated look */
+function BrightnessSlider() {
+  const { brightness, setBrightness } = useContext(LayersContext);
+  return (
+    <label className="flex items-center justify-between gap-3 min-h-9 sm:min-h-8">
+      <span className="text-[11px] text-white/70 tracking-[2px] uppercase">Brightness</span>
+      <span className="flex items-center gap-2">
+        <input
+          type="range"
+          min={0.4}
+          max={1.6}
+          step={0.05}
+          value={brightness}
+          onChange={(e) => setBrightness(Number(e.target.value))}
+          aria-label="Star brightness"
+          className="w-20 accent-[#4a90d9] cursor-pointer"
+        />
+        <span className="w-9 text-right text-[10px] text-white/55 tabular-nums">{Math.round(brightness * 100)}%</span>
+      </span>
+    </label>
+  );
+}
+
+/** What's drawn and how: a disclosure, closed until needed; the current level's group first */
+function Settings({ level }: { level: NormalHUDProps["level"] }) {
   const { layers, setLayer } = useContext(LayersContext);
   const [open, setOpen] = useState(false);
+  const groups = level === "galaxy" ? [...SETTINGS].reverse() : SETTINGS;
   return (
     <div>
       <button
@@ -259,14 +315,23 @@ function ShowFilters({ level }: { level: NormalHUDProps["level"] }) {
         onClick={() => setOpen(!open)}
         className={`${buttonClass} w-full flex items-center justify-between min-h-9 sm:min-h-8 text-[10px] tracking-[3px] uppercase text-white/55 hover:text-white`}
       >
-        Show
+        Settings
         <Icon name="chevron" className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="grid grid-cols-1">
-          {LAYER_LABELS.filter(([, , inGalaxy]) => level === "system" || inGalaxy).map(([layer, label]) => (
-            <Toggle key={layer} label={label} on={layers[layer]} onToggle={() => setLayer(layer, !layers[layer])} />
+        <div className="flex flex-col gap-2 pb-1">
+          {groups.map((group) => (
+            <div key={group.title} role="group" aria-label={group.title}>
+              <div className="text-[10px] tracking-[2px] text-[#4a90d9]/90 uppercase mt-1">{group.title}</div>
+              {group.items.map(([layer, label]) => (
+                <Toggle key={layer} label={label} on={layers[layer]} onToggle={() => setLayer(layer, !layers[layer])} />
+              ))}
+            </div>
           ))}
+          <div role="group" aria-label="Display">
+            <div className="text-[10px] tracking-[2px] text-[#4a90d9]/90 uppercase mt-1">Display</div>
+            <BrightnessSlider />
+          </div>
         </div>
       )}
     </div>
@@ -308,7 +373,7 @@ export default function NormalHUD({ infoOpen, setInfoOpen, level }: NormalHUDPro
       <LevelSwitch level={level} onPick={(next) => view(next === "galaxy" ? "milkyway" : "home")} />
       <div>
         <SectionTitle>View</SectionTitle>
-        <ViewButtons level={level} onView={view} />
+        <ViewButtons level={level} active={cameraNav?.activeView ?? null} onView={view} />
       </div>
       {level === "system" && (
         <div className="border-t border-white/10 pt-1">
@@ -316,7 +381,7 @@ export default function NormalHUD({ infoOpen, setInfoOpen, level }: NormalHUDPro
         </div>
       )}
       <div className="border-t border-white/10 pt-1">
-        <ShowFilters level={level} />
+        <Settings level={level} />
       </div>
     </div>
   );
@@ -327,7 +392,7 @@ export default function NormalHUD({ infoOpen, setInfoOpen, level }: NormalHUDPro
 
       <nav aria-label="Map controls" className="fixed z-[999999999] top-4 left-4 font-mono pointer-events-none">
         {/* Desktop: one compact panel */}
-        <div className="hidden sm:block pointer-events-auto w-[256px] rounded-xl border border-white/10 bg-black/60 bg-blur-custom">
+        <div className="hidden sm:block pointer-events-auto w-[256px] max-h-[calc(100dvh-7rem)] overflow-y-auto custom-scrollbar rounded-xl border border-white/10 bg-black/60 bg-blur-custom">
           <div className="flex items-center justify-between pl-3.5 pr-1.5 pt-1.5">
             <h1 className="text-[12px] tracking-[6px] uppercase text-white/85 font-light">Universe Map</h1>
             {infoButton}
@@ -350,7 +415,7 @@ export default function NormalHUD({ infoOpen, setInfoOpen, level }: NormalHUDPro
             <h1 className="text-[12px] tracking-[6px] uppercase text-white/85 font-light">Universe Map</h1>
           </div>
           {menuOpen && (
-            <div className="mt-2 w-[min(86vw,280px)] rounded-xl border border-white/10 bg-black/80 bg-blur-custom p-3">
+            <div className="mt-2 w-[min(86vw,280px)] max-h-[calc(100dvh-10rem)] overflow-y-auto custom-scrollbar rounded-xl border border-white/10 bg-black/80 bg-blur-custom p-3">
               {controls}
               <button
                 type="button"

@@ -118,6 +118,7 @@ const DUST = /* glsl */ `
   uniform sampler2D uDust;    // √(surface density / ${DUST_MAP_MAX}), over ±uDustRadius (kpc)
   uniform float uDustRadius;
   uniform float uDustOpacity; // optical depth per kpc for unit density
+  uniform float uCloudScale;  // 1: the dark clouds near the Sun, 0: hidden
   uniform vec3 uCameraKpc;    // camera, model axes, kpc
   uniform vec4 uClouds[CLOUD_COUNT];         // dark clouds near the Sun: center (kpc), σ (kpc)
   uniform vec4 uCloudDepth[CLOUD_COUNT / 4]; // optical depth through each center, four per vector
@@ -173,12 +174,11 @@ const DUST = /* glsl */ `
   }
 
   /**
-   * Optical depth along the segment from p to the camera: the dust layer
+   * Optical depth of the dust layer along the segment from p to the camera
    * (clipped to |z| < DUST_SLAB), sampled more finely near the camera, empty
-   * inside the Local Bubble; plus the dark clouds near the Sun
+   * inside the Local Bubble. dustDepth adds the dark clouds near the Sun
    */
-  float dustDepth(vec3 p, float jitter) {
-    float clouds = cloudDepth(p);
+  float layerDepth(vec3 p, float jitter) {
     vec3 d = uCameraKpc - p;
     float t0 = 0.0;
     float t1 = 1.0;
@@ -188,9 +188,9 @@ const DUST = /* glsl */ `
       t0 = max(t0, min(ta, tb));
       t1 = min(t1, max(ta, tb));
     } else if (abs(p.z) > DUST_SLAB) {
-      return clouds;
+      return 0.0;
     }
-    if (t1 <= t0) return clouds;
+    if (t1 <= t0) return 0.0;
     float len = length(d) * (t1 - t0);
     float tau = 0.0;
     for (int k = 0; k < DUST_STEPS; k++) {
@@ -201,7 +201,16 @@ const DUST = /* glsl */ `
       float column = v * v * ${glslFloat(DUST_MAP_MAX)} * bubble;
       tau += column * exp(-abs(q.z) / DUST_HEIGHT) / (2.0 * DUST_HEIGHT) * 2.0 * x / float(DUST_STEPS) * len;
     }
-    return tau * uDustOpacity + clouds;
+    return tau * uDustOpacity;
+  }
+
+  /** The dark clouds' part, when shown */
+  float cloudsDepth(vec3 p) {
+    return uCloudScale > 0.0 ? cloudDepth(p) * uCloudScale : 0.0;
+  }
+
+  float dustDepth(vec3 p, float jitter) {
+    return layerDepth(p, jitter) + cloudsDepth(p);
   }
 `;
 
@@ -363,8 +372,12 @@ export const galaxyStarVertexShader = /* glsl */ `
       dMag = 1.5;
     }
 
-    // Near the Sun the sky's own stars take over (generateSky): thin out
-    float keep = smoothstep(0.8, 2.2, length(pos - vec3(0.0, -SUN_KPC, 0.0)));
+    // Near the Sun the sky's own stars take over (generateSky): thin out, but
+    // only while the camera is there too. Seen from a few kpc away those stars
+    // are too faint to stand for the local disk, which would show as a hole
+    vec3 sun = vec3(0.0, -SUN_KPC, 0.0);
+    float atSun = 1.0 - smoothstep(0.5, 3.0, length(uCameraKpc - sun));
+    float keep = mix(1.0, smoothstep(0.8, 2.2, length(pos - sun)), atSun);
 
     // How much of the group shows as a point
     float asPoint = 1.0 - smoothstep(uResolved.x, uResolved.y, length(uCameraKpc - pos));
@@ -380,7 +393,14 @@ export const galaxyStarVertexShader = /* glsl */ `
     if (share <= 0.0) return;
     float absMag = uParticleMag + dMag + gauss(s);
     float parsecs = max(length(mvPosition.xyz) / uScenePerParsec, 0.01);
-    float tau = dustDepth(pos, rnd(s));
+    float tau = layerDepth(pos, rnd(s));
+    #ifdef CRISP
+    // Too faint to show as a point even before the dark clouds: no point, and
+    // no need to sum the clouds (the costly part near the Sun)
+    float pointMag = absMag + 5.0 * log2(parsecs / 10.0) * 0.30103 + 1.0857 * tau - 2.5 * log2(uPointFlux) * 0.30103;
+    if (pointMag > uMagLimit) return;
+    #endif
+    tau += cloudsDepth(pos);
     vColor = color;
     float flux = photometry(absMag, parsecs, tau, vColor);
     bool kept = rnd(s) < keep;

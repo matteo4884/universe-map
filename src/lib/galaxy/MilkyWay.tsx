@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { createPortal, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { generateSkyStars } from "./generateSky";
@@ -19,6 +19,7 @@ import { ARMS, BAR, KPC, GALAXY_MATRIX, GALAXY_MATRIX_INVERSE, GALAXY_SCALE } fr
 import { CLOUD_BLOBS } from "../../helper/darkClouds";
 import { isSoftwareRenderer } from "../../helper/webgl";
 import { loadingStore } from "../../helper/loadingStore";
+import { LayersContext } from "../../context/contexts";
 
 // How many groups of stars make the galaxy: fewer on phones, far fewer without a GPU
 const STARS_DESKTOP = 2000000;
@@ -201,7 +202,11 @@ function useBlurPass() {
  * planets.
  */
 export default function MilkyWay() {
+  // What the settings show, and how bright
+  const { layers, brightness } = useContext(LayersContext);
   const count = useStarCount();
+  const gl = useThree((s) => s.gl);
+  const software = useMemo(() => isSoftwareRenderer(gl.getContext()), [gl]);
   const starGeometry = useProceduralPoints(count);
   const nebulaGeometry = useProceduralPoints(NEBULAE);
   const skyStars = useMemo(generateSkyStars, []);
@@ -237,6 +242,7 @@ export default function MilkyWay() {
       uDust: { value: null as THREE.Texture | null },
       uDustRadius: { value: DUST_RADIUS_KPC },
       uDustOpacity: { value: DUST_OPACITY },
+      uCloudScale: { value: 1 },
       uCameraKpc: { value: new THREE.Vector3() },
       uScenePerParsec: { value: (KPC / 1000) * GALAXY_SCALE },
       uMagLimit: { value: STAR_MAG_LIMIT },
@@ -291,9 +297,16 @@ export default function MilkyWay() {
     nebulaUniforms.uMinPx.value = NEBULA_MIN_PX * dpr;
     nebulaUniforms.uMaxPx.value = NEBULA_MAX_PX * dpr;
     // Light per device pixel: a CSS pixel's worth is spread over dpr² of them
-    nebulaUniforms.uBrightness.value = NEBULA_BRIGHTNESS / (dpr * dpr);
-    stretchUniforms.uPerCssPixel.value = dpr * dpr;
+    nebulaUniforms.uBrightness.value = (NEBULA_BRIGHTNESS * brightness) / (dpr * dpr);
+    stretchUniforms.uPerCssPixel.value = dpr * dpr * brightness;
     uniforms.uDpr.value = dpr;
+    uniforms.uGain.value = STAR_GAIN * brightness;
+    // The dark clouds near the Sun can be hidden; the galaxy's own dust stays
+    // (without it the plane would blaze in one white line). Software WebGL
+    // skips them: every star sums 120 of them near the Sun, too slow on a CPU
+    uniforms.uCloudScale.value = layers.clouds && !software ? 1 : 0;
+    // Hidden: nothing to sum (the stretch's quad is hidden too)
+    if (!layers.galaxy) return;
 
     gl.getDrawingBufferSize(bufferSize);
     if (light.width !== bufferSize.x || light.height !== bufferSize.y) {
@@ -330,7 +343,6 @@ export default function MilkyWay() {
   }, 0.5);
 
   // Built once the dust is known and the glow's shaders are compiled
-  const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
   useEffect(() => {
     if (!dust) return;
@@ -365,7 +377,7 @@ export default function MilkyWay() {
               blending={THREE.AdditiveBlending}
             />
           </points>
-          <points geometry={nebulaGeometry} frustumCulled={false} raycast={() => null}>
+          <points geometry={nebulaGeometry} visible={layers.nebulae} frustumCulled={false} raycast={() => null}>
             <shaderMaterial
               vertexShader={nebulaVertexShader}
               fragmentShader={nebulaFragmentShader}
@@ -379,7 +391,7 @@ export default function MilkyWay() {
         </group>,
         galaxyScene
       )}
-      <mesh frustumCulled={false} renderOrder={-1000} raycast={() => null}>
+      <mesh visible={layers.galaxy} frustumCulled={false} renderOrder={-1000} raycast={() => null}>
         <planeGeometry args={[2, 2]} />
         <shaderMaterial
           vertexShader={screenVertexShader}
@@ -390,7 +402,12 @@ export default function MilkyWay() {
           blending={THREE.AdditiveBlending}
         />
       </mesh>
-      <group position={transform.position} quaternion={transform.quaternion} scale={transform.scale}>
+      <group
+        visible={layers.galaxy}
+        position={transform.position}
+        quaternion={transform.quaternion}
+        scale={transform.scale}
+      >
         <points geometry={starGeometry} frustumCulled={false} raycast={() => null}>
           <shaderMaterial
             defines={{ CRISP: "" }}

@@ -164,7 +164,10 @@ export default function LabelProjector({ solarSystemVisible }: { solarSystemVisi
         const important = e.body.id === hovered || e.body.id === selectedId;
         // Filters: hidden kinds still show once selected
         const filteredOut =
-          !important && ((isSpacecraft && !layers.spacecraft) || (e.body.type === "region" && !layers.belt));
+          !important &&
+          ((isSpacecraft && !layers.spacecraft) ||
+            (e.body.type === "region" && !layers.belt) ||
+            (e.body.type === "moon" && !layers.moons));
         const planetPx = onPlanet ? parentPx(e.body) : Infinity;
         wantsMarker =
           !filteredOut && e.body.type !== "region" && planetPx >= PLANET_DISC_MARKER_PX && (isSpacecraft || e.px < MARKER_MAX_PX);

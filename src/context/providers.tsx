@@ -10,6 +10,7 @@ import {
   SelectOptions,
   LayersContext,
   Layer,
+  ALL_LAYERS,
 } from "./contexts";
 
 type Props = {
@@ -65,12 +66,23 @@ export function ScaleProvider({ children }: Props) {
 }
 
 export function CameraNavigationProvider({ children }: Props) {
-  const [flyTo, setFlyTo] = useState<CelestialBody | null>(null);
-  const [viewSnap, setViewSnap] = useState<ViewDirection>(null);
+  const [flyTo, setFlyToState] = useState<CelestialBody | null>(null);
+  const [viewSnap, setViewSnapState] = useState<ViewDirection>(null);
+  const [activeView, setActiveView] = useState<ViewDirection>(null);
+
+  // A view asked for stays the active one until a flight to a body (or the user) moves the camera
+  const setViewSnap = useCallback((dir: ViewDirection) => {
+    setViewSnapState(dir);
+    if (dir) setActiveView(dir);
+  }, []);
+  const setFlyTo = useCallback((body: CelestialBody | null) => {
+    setFlyToState(body);
+    if (body) setActiveView(null);
+  }, []);
 
   const value = useMemo(
-    () => ({ flyTo, setFlyTo, viewSnap, setViewSnap }),
-    [flyTo, viewSnap]
+    () => ({ flyTo, setFlyTo, viewSnap, setViewSnap, activeView, setActiveView }),
+    [flyTo, setFlyTo, viewSnap, setViewSnap, activeView]
   );
 
   return (
@@ -218,20 +230,30 @@ export function SelectionProvider({ children }: Props) {
 }
 
 const LAYERS_KEY = "universe-map:layers";
-const DEFAULT_LAYERS: Record<Layer, boolean> = { orbits: true, spacecraft: true, belt: true, labels: true };
+const BRIGHTNESS_KEY = "universe-map:brightness";
 
 function loadLayers(): Record<Layer, boolean> {
   try {
     const saved = JSON.parse(localStorage.getItem(LAYERS_KEY) ?? "{}");
-    return { ...DEFAULT_LAYERS, ...saved };
+    return { ...ALL_LAYERS, ...saved };
   } catch {
-    return DEFAULT_LAYERS;
+    return ALL_LAYERS;
+  }
+}
+
+function loadBrightness(): number {
+  try {
+    const saved = Number(localStorage.getItem(BRIGHTNESS_KEY));
+    return saved > 0 ? saved : 1;
+  } catch {
+    return 1;
   }
 }
 
 /** Scene filters, remembered between visits */
 export function LayersProvider({ children }: Props) {
   const [layers, setLayers] = useState(loadLayers);
+  const [brightness, setBrightnessState] = useState(loadBrightness);
 
   const setLayer = useCallback((layer: Layer, visible: boolean) => {
     setLayers((prev) => {
@@ -245,6 +267,18 @@ export function LayersProvider({ children }: Props) {
     });
   }, []);
 
-  const value = useMemo(() => ({ layers, setLayer }), [layers, setLayer]);
+  const setBrightness = useCallback((next: number) => {
+    setBrightnessState(next);
+    try {
+      localStorage.setItem(BRIGHTNESS_KEY, String(next));
+    } catch {
+      // Storage blocked: the choice lasts until reload
+    }
+  }, []);
+
+  const value = useMemo(
+    () => ({ layers, setLayer, brightness, setBrightness }),
+    [layers, setLayer, brightness, setBrightness]
+  );
   return <LayersContext.Provider value={value}>{children}</LayersContext.Provider>;
 }

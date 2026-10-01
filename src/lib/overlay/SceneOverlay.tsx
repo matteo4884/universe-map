@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { CelestialBody } from "../../data";
 import { SelectionContext, CameraNavigationContext } from "../../context/contexts";
 import { SCENE_BODIES } from "../../helper/bodies";
@@ -28,6 +28,22 @@ function labelTone(body: CelestialBody): string {
 export default function SceneOverlay() {
   const { select } = useContext(SelectionContext);
   const cameraNav = useContext(CameraNavigationContext);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Names and markers sit over the canvas: the wheel goes on to it, so zooming
+  // works with the pointer on them too
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const forward = (e: WheelEvent) => {
+      const canvas = document.querySelector("#canvas-container canvas");
+      if (!canvas) return;
+      e.preventDefault();
+      canvas.dispatchEvent(new WheelEvent("wheel", e));
+    };
+    root.addEventListener("wheel", forward, { passive: false });
+    return () => root.removeEventListener("wheel", forward);
+  }, []);
 
   const handlers = (body: CelestialBody) => ({
     onClick: () => select(body),
@@ -39,7 +55,7 @@ export default function SceneOverlay() {
   });
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-[1] font-mono noselect">
+    <div ref={rootRef} className="fixed inset-0 pointer-events-none overflow-hidden z-[1] font-mono noselect">
       {/* Selection ring */}
       <div
         ref={(el) => {

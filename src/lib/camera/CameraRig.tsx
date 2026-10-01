@@ -14,7 +14,7 @@ import { useSceneClock } from "../../hooks/useSceneClock";
 import { blendPosition, blendRadius, poleToEcliptic } from "../../helper/units";
 import { scenePosition, regionRadiiKm, hasRenderedRings } from "../../helper/bodyPosition";
 import { getBodyBySlug } from "../../helper/bodies";
-import { systemViewDistance, homeOffset } from "../../helper/views";
+import { homeOffset, systemViewOffset } from "../../helper/views";
 import { ZoomPath, zoomPath, peakDistance, flightEase, flightTiming } from "../../helper/flight";
 import { GALACTIC_CENTER, galaxyViewOffset, cameraUp } from "../../helper/galaxy";
 import { CelestialBody } from "../../data";
@@ -133,6 +133,7 @@ const _dir = new THREE.Vector3();
 
 export default function CameraRig({ controlsRef }: CameraRigProps) {
   const cameraNav = useContext(CameraNavigationContext);
+  const setActiveView = cameraNav?.setActiveView;
   const scaleCtx = useContext(ScaleContext);
   const artemis = useContext(ArtemisModeContext);
   const { panelOpen } = useContext(SelectionContext);
@@ -160,6 +161,8 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
     // Grabbing the view mid-flight stops the flight. Capture phase: the
     // controls get the same event and start the drag or zoom right away
     const takeOver = () => {
+      // The view chosen from the controls is no longer what's on screen
+      setActiveView?.(null);
       if (!flight.current) return;
       flight.current = null;
       if (controlsRef.current) controlsRef.current.enabled = true;
@@ -172,7 +175,7 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
       canvas.removeEventListener("pointerdown", takeOver, { capture: true });
       canvas.removeEventListener("wheel", takeOver, { capture: true });
     };
-  }, [gl, setCameraLocked, controlsRef]);
+  }, [gl, setCameraLocked, controlsRef, setActiveView]);
 
   useFrame((_, delta) => {
     cameraLockedRef.current = artemis.cameraLocked;
@@ -275,18 +278,12 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
         startFlight(() => GALACTIC_CENTER, galaxyViewOffset(aspect, persp.fov, kind), null);
         return;
       }
-      // For "home", use TARGET blend (where the scale is going), not current
-      const targetBlend = view === "home" ? (scaleCtx!.realisticMode ? 1 : 0) : blend;
-      const viewDist = systemViewDistance(targetBlend, aspect);
-      let offset: THREE.Vector3;
-      if (view === "top") {
-        // Straight down, nudged off the pole so "up" stays defined
-        offset = new THREE.Vector3(0, -viewDist * 0.001, viewDist);
-      } else if (view === "front") {
-        offset = new THREE.Vector3(0, viewDist, 0);
-      } else {
-        offset = new THREE.Vector3(...homeOffset(targetBlend, aspect));
-      }
+      // Framed for where the scale is going, not where the blend is now
+      const targetBlend = scaleCtx!.realisticMode ? 1 : 0;
+      const offset =
+        view === "home"
+          ? new THREE.Vector3(...homeOffset(targetBlend, aspect))
+          : new THREE.Vector3(...systemViewOffset(view === "top" ? "top" : "side", targetBlend, aspect, persp.fov));
       const sun = new THREE.Vector3();
       startFlight(() => sun, offset, null);
     }

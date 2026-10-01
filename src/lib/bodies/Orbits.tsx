@@ -195,7 +195,8 @@ export default function Orbits() {
     const focalPx = size.height / (2 * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360));
     for (const o of orbits.moonOrbits) {
       const planet = getParent(o.body)!;
-      const p = showOrbits ? scenePosition(planet, ephemeris, t, blend) : null;
+      const moonShown = layers.moons || o.body.id === selectedId;
+      const p = showOrbits && moonShown ? scenePosition(planet, ephemeris, t, blend) : null;
       if (!p) {
         o.line.visible = false;
         continue;

@@ -35,6 +35,7 @@ import {
   EphemerisContext,
   TimeContext,
   LayersContext,
+  SelectionContext,
 } from './context/contexts';
 import ArtemisButton from './lib/artemis/ArtemisButton';
 import ArtemisHUD from './lib/artemis/ArtemisHUD';
@@ -163,6 +164,9 @@ function AppInner() {
   const ephemeris = useEphemeris();
   const { active: artemisActive } = useContext(ArtemisModeContext);
   const { layers } = useContext(LayersContext);
+  const { selected } = useContext(SelectionContext);
+  // Moons can be hidden (still loaded, so showing them again is instant); the selected one always shows
+  const hiddenBody = (b: (typeof SPHERE_BODIES)[number]) => !layers.moons && b.type === "moon" && b.id !== selected?.id;
   const [infoOpen, setInfoOpen] = useState(false);
   const webglAvailable = useMemo(isWebGLAvailable, []);
   const [sceneFailed, setSceneFailed] = useState(false);
@@ -203,7 +207,7 @@ function AppInner() {
                 <group visible={solarSystemVisible}>
                   <Sun body={SUN} />
                   {SPHERE_BODIES.map((body) => (
-                    <Body key={body.id} body={body} />
+                    <Body key={body.id} body={body} hidden={hiddenBody(body)} />
                   ))}
                   <Orbits />
                   {layers.belt && !artemisActive && <AsteroidBelt />}

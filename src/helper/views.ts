@@ -24,3 +24,31 @@ export function homeOffset(blend: number, aspect: number): [number, number, numb
   const d = systemViewDistance(blend, aspect);
   return [0, d * Math.sin(HOME_ELEVATION), d * Math.cos(HOME_ELEVATION)];
 }
+
+// Room around Neptune's orbit (Pluto strays beyond it)
+const FIT_MARGIN = 1.15;
+// The side view sits a little above the planets' plane: seen exactly edge-on
+// the orbits fade away and the planets pile up on one line
+const SIDE_ELEVATION = (12 * Math.PI) / 180;
+
+/**
+ * Camera offset from the Sun for the top and side views, far enough that
+ * Neptune's whole orbit is in frame: from above it's a circle (fits the
+ * shorter side of the screen), from the side a thin ellipse (fits the width)
+ */
+export function systemViewOffset(
+  view: "top" | "side",
+  blend: number,
+  aspect: number,
+  fovDeg: number
+): [number, number, number] {
+  const r = systemRadius(blend) * FIT_MARGIN;
+  const halfHeight = Math.tan((fovDeg * Math.PI) / 360);
+  if (view === "top") {
+    const d = r / (halfHeight * Math.min(1, aspect));
+    // Nudged off the pole so "up" stays defined
+    return [0, -d * 0.001, d];
+  }
+  const d = Math.max(r / (halfHeight * aspect), (r * Math.sin(SIDE_ELEVATION)) / halfHeight);
+  return [0, d * Math.cos(SIDE_ELEVATION), d * Math.sin(SIDE_ELEVATION)];
+}

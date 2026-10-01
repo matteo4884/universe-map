@@ -97,3 +97,27 @@ test("the map controls fly between the Solar System and the Milky Way", async ({
   await expect(controls.getByRole("button", { name: "Solar System" })).toHaveAttribute("aria-pressed", "true");
   expect(errors).toEqual([]);
 });
+
+test("settings hide and show what's drawn, and the views stay lit until the camera moves", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("/");
+  await waitForScene(page);
+  const controls = page.getByRole("navigation", { name: "Map controls" });
+
+  await controls.getByRole("button", { name: "Top" }).click();
+  await expect(controls.getByRole("button", { name: "Top" })).toHaveAttribute("aria-pressed", "true");
+
+  await controls.getByRole("button", { name: "Settings" }).click();
+  const moons = controls.getByRole("group", { name: "Solar System" }).getByRole("switch", { name: "Moons" });
+  await expect(moons).toHaveAttribute("aria-checked", "true");
+  await moons.click();
+  await expect(moons).toHaveAttribute("aria-checked", "false");
+  await moons.click();
+  await expect(controls.getByRole("slider", { name: "Star brightness" })).toBeVisible();
+
+  // Zooming with the wheel over a name moves the camera: the view is no longer the chosen one
+  await page.getByRole("button", { name: "Jupiter" }).first().hover();
+  await page.mouse.wheel(0, -300);
+  await expect(controls.getByRole("button", { name: "Top" })).toHaveAttribute("aria-pressed", "false");
+  expect(errors).toEqual([]);
+});

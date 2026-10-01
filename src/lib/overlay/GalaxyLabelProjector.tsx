@@ -59,7 +59,8 @@ export default function GalaxyLabelProjector({ solarSystemVisible }: { solarSyst
     };
 
     const fromSun = Math.log10(Math.max(camera.position.length(), 1));
-    const namesOpacity = layers.labels && !missionActive ? smoothstep(NAMES_FADE_FROM, NAMES_FADE_TO, fromSun) : 0;
+    const namesOpacity =
+      layers.galaxyNames && layers.galaxy && !missionActive ? smoothstep(NAMES_FADE_FROM, NAMES_FADE_TO, fromSun) : 0;
     const elevation = Math.abs(_view.copy(camera.position).sub(GALACTIC_CENTER).normalize().dot(GALACTIC_NORTH));
     const armsOpacity = namesOpacity * smoothstep(ARMS_TILT_FROM, ARMS_TILT_TO, elevation);
     // Decluttered by priority: the Sun's marker, the center, then the arms.

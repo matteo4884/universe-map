@@ -6,7 +6,7 @@ export const SHORTCUTS: [string, string][] = [
   ["G", "Solar System / Milky Way"],
   ["O / T / S", "Overview, top, side view"],
   ["R", "Real scale"],
-  ["L", "Orbit lines (more filters under Show)"],
+  ["L", "Orbit lines (more under Settings)"],
   ["Space", "Play / pause time"],
   ["[  ]", "Slower / faster"],
   ["N", "Back to now"],

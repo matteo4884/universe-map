@@ -68,7 +68,8 @@ function PlainSurface({ file, sphereRef }: { file: string; sphereRef: React.RefO
  * the simulated time. Bodies with IAU rotation data spin; moons without it are
  * tidally locked to their planet.
  */
-export default function Body({ body }: { body: CelestialBody }) {
+/** A body's sphere; `hidden` keeps it loaded but undrawn and unclickable (filtered out) */
+export default function Body({ body, hidden = false }: { body: CelestialBody; hidden?: boolean }) {
   const { blendRef, getTime, ephemeris } = useSceneClock();
   const pointer = useBodyPointer(body);
   const parent = getParent(body);
@@ -134,7 +135,7 @@ export default function Body({ body }: { body: CelestialBody }) {
   );
 
   return (
-    <group ref={groupRef} {...pointer}>
+    <group ref={groupRef} visible={!hidden} {...(hidden ? {} : pointer)}>
       {tidallyLocked ? (
         <group ref={lockRef}>
           <group rotation={[0, -Math.PI / 2, 0]}>{surface}</group>

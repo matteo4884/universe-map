@@ -46,17 +46,44 @@ export const EphemerisContext = createContext<EphemerisContextType>({
   error: false,
 });
 
-export type Layer = "orbits" | "spacecraft" | "belt" | "labels";
+/** What can be shown or hidden: the Solar System's layers, then the Milky Way's */
+export type Layer =
+  | "orbits"
+  | "moons"
+  | "spacecraft"
+  | "belt"
+  | "labels"
+  | "galaxy"
+  | "clouds"
+  | "nebulae"
+  | "galaxyNames";
+
+export const ALL_LAYERS: Record<Layer, boolean> = {
+  orbits: true,
+  moons: true,
+  spacecraft: true,
+  belt: true,
+  labels: true,
+  galaxy: true,
+  clouds: true,
+  nebulae: true,
+  galaxyNames: true,
+};
 
 export type LayersContextType = {
-  /** What's drawn in the scene, toggled from the "Show" filters */
+  /** What's drawn in the scene, toggled from the settings */
   layers: Record<Layer, boolean>;
   setLayer: (layer: Layer, visible: boolean) => void;
+  /** How bright the stars and the galaxy are drawn, 1 = as calibrated */
+  brightness: number;
+  setBrightness: (brightness: number) => void;
 };
 
 export const LayersContext = createContext<LayersContextType>({
-  layers: { orbits: true, spacecraft: true, belt: true, labels: true },
+  layers: ALL_LAYERS,
   setLayer: () => {},
+  brightness: 1,
+  setBrightness: () => {},
 });
 
 /** Views of the Solar System (home, top, front) and of the whole galaxy */
@@ -67,6 +94,9 @@ export type CameraNavigationContextType = {
   setFlyTo: (body: CelestialBody | null) => void;
   viewSnap: ViewDirection;
   setViewSnap: (dir: ViewDirection) => void;
+  /** The view last asked for, until the camera is moved some other way */
+  activeView: ViewDirection;
+  setActiveView: (dir: ViewDirection) => void;
 };
 
 export const CameraNavigationContext = createContext<
