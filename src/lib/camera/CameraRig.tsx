@@ -130,6 +130,28 @@ function chaseOffset(subject: THREE.Vector3, toward: THREE.Vector3, dist: number
 
 const _up = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+const _keepPosition = new THREE.Vector3();
+const _keepTarget = new THREE.Vector3();
+
+/**
+ * Forget the motion the controls still carry from the user's last drag. With
+ * damping they glide on for a while, but they only update while enabled: a
+ * glide left over when a flight starts would play out after it, at the scale
+ * it began (a pan made in the galaxy view throws the camera kiloparsecs away
+ * from the Solar System). An undamped update spends it; the camera is put back.
+ */
+function settleControls(controls: OrbitControlsImpl, camera: THREE.Camera) {
+  _keepPosition.copy(camera.position);
+  _keepTarget.copy(controls.target);
+  const damping = controls.enableDamping;
+  controls.enableDamping = false;
+  controls.update();
+  controls.enableDamping = damping;
+  camera.position.copy(_keepPosition);
+  controls.target.copy(_keepTarget);
+  // Nothing left to apply: this one just turns the camera back to its target
+  controls.update();
+}
 
 export default function CameraRig({ controlsRef }: CameraRigProps) {
   const cameraNav = useContext(CameraNavigationContext);
@@ -209,6 +231,7 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
     };
 
     function startFlight(to: Flight["to"], endOffset: THREE.Vector3, nextFocus: Focus | null, fixedDuration?: number) {
+      settleControls(controls!, camera);
       const startTarget = controls!.target.clone();
       // Leaving a body we were following: keep following it while we pull away
       const leaving = focus.current;

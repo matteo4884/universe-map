@@ -121,3 +121,30 @@ test("settings hide and show what's drawn, and the views stay lit until the came
   await expect(controls.getByRole("button", { name: "Top" })).toHaveAttribute("aria-pressed", "false");
   expect(errors).toEqual([]);
 });
+
+test("flying home from the galaxy lands and stays, even right after dragging the view there", async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto("/?body=milky-way");
+  await waitForScene(page);
+  await expect(page.getByText("Sagittarius A*", { exact: true })).toBeVisible({ timeout: 15000 });
+
+  // A quick pan, released while still moving: the controls glide on (damping)
+  const box = (await page.locator("canvas").boundingBox())!;
+  const x = box.x + box.width * 0.4;
+  const y = box.y + box.height * 0.5;
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(x + 160, y + 60, { steps: 4 });
+  await page.mouse.up({ button: "right" });
+
+  // Clicked while the view still glides (the marker moves with it: no waiting for it to stand still)
+  const marker = page.getByRole("button", { name: /Solar System, you are here/ });
+  await marker.dispatchEvent("click");
+  await expect(marker).toBeHidden({ timeout: 20000 });
+  await expect(page.getByRole("button", { name: "Jupiter" }).first()).toBeVisible();
+  // Still home a few seconds later: the glide left over from the galaxy didn't carry the camera off
+  await page.waitForTimeout(3000);
+  await expect(marker).toBeHidden();
+  await expect(page.getByRole("button", { name: "Jupiter" }).first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
