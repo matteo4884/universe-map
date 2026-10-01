@@ -28,7 +28,8 @@ An interactive 3D visualization of our Solar System and the Milky Way galaxy, wi
 |---|---|
 | Click / double-click | Select a body / fly to it |
 | `0`–`9` | Sun, planets, Pluto |
-| `O` `T` `F` | Overview, top, front view |
+| `G` | Solar System / Milky Way |
+| `O` `T` `S` | Overview, top, side view (of the Solar System or the galaxy) |
 | `R` / `L` | Real scale / orbit lines |
 | `Space`, `[` `]`, `N` | Play/pause, slower/faster, back to now |
 | `Esc` | Close the panel |
