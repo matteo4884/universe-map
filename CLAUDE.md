@@ -16,7 +16,7 @@ Interactive 3D visualization of the Solar System and Milky Way galaxy, with live
 npm run dev       # Vite dev server on :5317 (--host 0.0.0.0)
 npm run build     # tsc -b && vite build (three.js and other libraries in separate cached chunks)
 npm run lint      # ESLint — keep it at 0 errors, 0 warnings
-npm test          # Vitest: orbital model vs JPL Horizons fixtures, scale rules
+npm test          # Vitest: orbital model vs JPL Horizons fixtures, scale rules, flight paths, galaxy model, star photometry
 npm run test:e2e  # Playwright smoke tests against `vite preview` (build first); uses local Chrome, CI installs Chromium
 ```
 
@@ -24,7 +24,9 @@ npm run test:e2e  # Playwright smoke tests against `vite preview` (build first);
 
 ### Coordinate System
 
-Ecliptic J2000, **Z-up**. Camera up = `[0, 0, 1]` (never changed: OrbitControls relies on it). Positions in km from NASA JPL Horizons. `KM_PER_UNIT = 6371` (1 Three.js unit = 1 Earth radius).
+Ecliptic J2000, **Z-up**. Positions in km from NASA JPL Horizons. `KM_PER_UNIT = 6371` (1 Three.js unit = 1 Earth radius).
+
+Camera up = ecliptic north `[0, 0, 1]` among the planets, turning to the galactic north pole far out (`cameraUp(distance from the Sun)` in `helper/galaxy.ts`, set every frame by CameraRig). OrbitControls re-reads `camera.up` on each update, so orbiting follows: around the ecliptic pole in the Solar System, around the galaxy's pole in the galaxy view.
 
 ### Positions over time (`helper/kepler.ts`, `ephemeris.ts`, `moonTheory.ts`)
 
@@ -70,13 +72,14 @@ main.tsx → ScaleProvider → CameraNavigationProvider → TimeProvider → Sel
     SceneErrorScreen                       # instead of everything if no WebGL / scene crashed
     EphemerisContext.Provider
     LoadingScreen                          # waits for 512px texture previews only
-    SceneErrorBoundary → Canvas (logarithmicDepthBuffer, far: 500B)
+    SceneErrorBoundary → Canvas (logarithmicDepthBuffer, far: 5T)
       SimClock                             # freezes the frame's time
       Sun, Body[] (planets, dwarfs, moons), Orbits, AsteroidBelt
       MilkyWay, OrionSpacecraft (mission mode)
       Bloom, OrbitControls (makeDefault), CameraRig
       LabelProjector                       # projects bodies → drives SceneOverlay DOM
-    SceneOverlay                           # labels, dots, selection ring, scale bar (DOM)
+      GalaxyLabelProjector                 # galaxy names + "you are here" marker
+    SceneOverlay                           # labels, dots, selection ring, scale bar, galaxy names (DOM)
     OnboardingHint
     ArtemisAwareUI: NormalHUD, CelestialCard, MobileSheet, TimeBar, ArtemisButton, ArtemisHUD
 ```
@@ -86,17 +89,27 @@ main.tsx → ScaleProvider → CameraNavigationProvider → TimeProvider → Sel
 - **Body.tsx**: any sphere body, positioned each frame. Spins from IAU data (Earth: ERA) or is tidally locked (moons without spin data). Earth layers and Saturn rings are sub-components. Textures via `useProgressiveTexture` (512px preview from `/textures/low/`, then 2k).
 - **Sun.tsx**: emissive, pulsing, the scene's only light.
 - **Orbits.tsx**: Sun-orbit ellipses tinted with the body's color (dwarf planets dashed), moon orbits (fade in when the planet is big on screen), and the selected spacecraft's trail only. Every orbit fades out when seen edge-on (Sun orbits judged against the ecliptic) or when the camera is right on the line, so close-ups stay clean. Selected body's orbit highlighted.
-- **AsteroidBelt.tsx**: 5,000 points moving at Keplerian rates, computed in the vertex shader. In the data it's a `region` body (label on the ring's near edge via `regionAnchor`, card, "Go to" frames the ring from above).
+- **AsteroidBelt.tsx**: 9,000 points (seeded) moving at Keplerian rates, computed in the vertex shader. Additive and light-conserving: each point stands for a patch of the belt (sized relative to its distance from the Sun); under 2 px it dims instead of shrinking, so from afar the belt is a soft glow, not a crowd of dots. Most points faint (few big asteroids, many small). Fades to 15% when the camera is closer to the Sun than the belt, so it doesn't clutter the inner planets' sky. In the data it's a `region` body (label on the ring's near edge via `regionAnchor`, card, "Go to" frames the ring from above).
 - Spacecraft have no mesh: they're dots + labels in the overlay.
-- **MilkyWay.tsx / generateGalaxy.ts**: 150k points (bulge, bar, 4 arms, disk, halo). Galaxy offset so the Sun sits at the origin; scale `S = 250,000,000`.
+- **The Solar System** (planets, orbits, belt) is hidden once Neptune's orbit is under a pixel (`SOLAR_SYSTEM_HIDE_FACTOR` × its scene distance, so later in real scale).
+
+### The Milky Way (`helper/galaxy.ts`, `lib/galaxy/`)
+
+- **Model** (`helper/galaxy.ts`, units of 100 ly, Galactic Center at the origin, Sun at `(0, −8.2 kpc)`): long bar 28° from the Sun–center line; the major arms (Scutum–Centaurus, Perseus) leave from its ends, the minor arms (Sagittarius–Carina, Norma–Outer) lie between, the 3-kpc arms hug the bar, the Sun is in the Orion Spur. Log spirals (`armPoint`, `armOffset`) fitted to maser parallaxes (Reid et al.). Covered by `src/__tests__/galaxy.test.ts`.
+- **Placement**: `GALAXY_MATRIX` rotates the model into ecliptic J2000 (galactic → equatorial → ecliptic): the Galactic Center lies toward Sagittarius, the disk is tilted ~60° to the planets' plane, so from the Solar System the Milky Way crosses the sky as it really does. Scale `GALAXY_SCALE = 250,000,000` scene units per model unit: a backdrop, ~600× smaller than real relative to the Solar System in real scale.
+- **Stars** (`MilkyWay.tsx`): one photometry for every star, no fades. Each point has an absolute magnitude; its brightness and size come from that and its distance to the camera (fine points for faint stars, a few bright ones with a small halo; nothing fainter than mag 12). Two sets: `generateSky` places 24,000 single stars in 3D around the Sun (B/A/F/G stars, K/M giants; about the real counts per magnitude, `src/__tests__/sky.test.ts`), `generateGalaxy` ~135k particles that are clusters of stars (M ≈ −5 ± 1, globulars ≈ −5.5): from the planets they're the Milky Way's band of faint stars, from afar the galaxy's sparkle. Clusters thin out within ~2 kpc of the Sun, where the single stars take over, so none outshines the real bright stars. Seeded: same sky on every visit.
+- **The disk's glow**: rendered once from the model into a 2048² texture (`diskBakeFragmentShader`: exponential disk, bar, bulge, arms with clumps, pink star-forming regions, dust lanes on their inner edges; `compileAsync`, a strip per frame, a quarter of the resolution on software WebGL via `isSoftwareRenderer`) and drawn on a plane that brightens when seen at a slant (×1/cos, edge-on = bright line). It's the disk seen from outside: it fades in as the camera climbs above the plane (0.01–0.4 kpc). The texture stores display values, linearized with `pow(c, 2.2)` when drawn (the composer encodes to sRGB).
+- Design rule: no glow behind the planets and no star fading in or out with the camera's distance. The band is made of stars and every change in brightness comes from distance alone (a sky glow baked from the model was tried and dropped: it read as haze).
 
 ### Camera (`lib/camera/CameraRig.tsx`)
 
-OrbitControls (no roll). Flights ease toward a target re-evaluated each frame (bodies move); after arrival the camera **tracks** the body (time passing, scale changing keeps the same apparent size). View snaps clear tracking. When the desktop panel is open the view is offset (`setViewOffset`) so the target sits in the free area. Mission mode: flies to/tracks Orion, Earth, Moon.
+OrbitControls (no roll). **Flights** follow van Wijk & Nuij's zoom path (`helper/flight.ts`, as in d3-zoom): zoom out, travel, zoom in, at a steady perceived speed; distance changes exponentially, so galaxy ↔ planet (10 orders of magnitude) takes the same time per tenfold step. Duration from the path length (1–5 s, 0.6 s with reduced motion), sine-shaped speed ramps. The camera's direction turns around the moving center (around the ecliptic pole) and rises up to 22° above the planets' plane on flights that zoom out across the system. Start and end targets are re-evaluated every frame (bodies move; leaving a tracked body keeps following it). Arrival: sunward of the body, turned 35° aside and 15° up so the terminator shows; ringed planets from 25° above the rings' sunlit face; landing at 4 radii (6 with rings). A new request takes over a flight in progress; grabbing the view (pointer down / wheel, capture phase) stops it. After arrival the camera **tracks** the body (time passing, scale changing keeps the same apparent size). View snaps clear tracking. When the desktop panel is open the view is offset (`setViewOffset`) so the target sits in the free area, and views are framed for the free area's aspect. Mission mode: flies to/tracks Orion, Earth, Moon.
 
 ### Overlay (`lib/overlay/`)
 
 `LabelProjector` (inside the Canvas) writes styles directly to DOM nodes registered in `overlayStore` — no React renders per frame. Rules: labels hidden behind nearer spheres, decluttered by priority (hovered > selected > Sun > planets > dwarfs > belt > spacecraft > moons), moon labels/dots only when their planet is big on screen (≥12–14 px); dots for bodies smaller than ~2.5 px; selection ring; scale bar in realistic mode. Honors the Show filters (a selected body always shows). `hoverStore` tracks the body under the pointer (3D, label or dot).
+
+`GalaxyLabelProjector` does the same for the galaxy view: the Solar System's "you are here" marker (shown while the planets are hidden, click → Overview), the Galactic Center and the arms' names (`GALAXY_LANDMARKS`; beyond ~6,000 ly from the Sun, arms only when the disk is seen from above). Decluttered by priority, kept clear of the screen edges and the Explore tab.
 
 ### UI (`lib/cards/`, `lib/hud/`)
 
@@ -116,7 +129,7 @@ OrbitControls (no roll). Flights ease toward a target re-evaluated each frame (b
 ### Static Assets
 
 - `/public/*.jpg` — 2k textures; `/public/textures/low/` — 512px previews (regenerate when a texture changes)
-- `/public/images/*.webp` — card images; `milky-way.webp` is a crop of the galaxy view
+- `/public/images/*.webp` — card images; `milky-way.webp` is a 256px crop of the face-on galaxy view (regenerate if the model changes)
 - `/public/icon.png`, `apple-touch-icon.png`, `og-image.jpg`; `docs/preview.jpg` for the README
 - Real surface maps for every body (credits in the Info modal); unimaged regions (Uranus's moons, Pluto, Charon) are filled with a neutral tone
 

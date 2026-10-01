@@ -12,7 +12,8 @@ An interactive 3D visualization of our Solar System and the Milky Way galaxy, wi
 - **Time travel** — Play time forward or backward up to a year per second, or jump to any date between 1800 and 2200
 - **Spacecraft** — Voyager 1 and 2, New Horizons and the James Webb Space Telescope, with the path each has flown
 - **Asteroid belt** — Thousands of asteroids circling between Mars and Jupiter at their own speed
-- **Milky Way** — 150,000 star point cloud with a central bar and spiral arms
+- **Milky Way** — A barred spiral mapped on real measurements: the bar, the Perseus, Scutum–Centaurus, Sagittarius–Carina and Norma arms, the Sun in the Orion Spur, dust lanes and star-forming regions. Tilted as it really is, so from the planets its band of stars crosses the sky where it really does. Every star is drawn at its real brightness for its distance: 24,000 stars around the Sun plus the galaxy's star clusters
+- **Smooth flights** — From a planet to the whole galaxy and back: the camera zooms out, travels and zooms in at a steady pace across ten orders of magnitude
 - **Filters** — Show or hide orbits, spacecraft, the asteroid belt and labels; orbits fade away in close-ups
 - **Real Scale Mode** — Toggle between compressed (logarithmic) and true-to-life distances, with a scale bar
 - **Explore panel** — Stats, atmosphere and live facts for every body: distance from Earth, light travel time, Moon phase
