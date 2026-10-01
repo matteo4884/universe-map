@@ -11,12 +11,13 @@ import {
   ViewDirection,
 } from "../../context/contexts";
 import { useSceneClock } from "../../hooks/useSceneClock";
-import { blendPosition, blendRadius } from "../../helper/units";
-import { scenePosition, regionRadiiKm } from "../../helper/bodyPosition";
+import { blendPosition, blendRadius, poleToEcliptic } from "../../helper/units";
+import { scenePosition, regionRadiiKm, hasRenderedRings } from "../../helper/bodyPosition";
 import { getBodyBySlug } from "../../helper/bodies";
 import { systemViewDistance, homeOffset } from "../../helper/views";
-import { CelestialBody } from "../../data";
+import { ZoomPath, zoomPath, peakDistance, flightEase, flightTiming } from "../../helper/flight";
 import { GALACTIC_CENTER, galaxyViewOffset, cameraUp } from "../../helper/galaxy";
+import { CelestialBody } from "../../data";
 
 interface CameraRigProps {
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
@@ -28,6 +29,14 @@ const ARTEMIS_MAX_DISTANCE = 150; // Limit zoom to Earth-Moon view
 const PANEL_WIDTH = 380;
 const PANEL_MIN_SCREEN = 640; // the desktop panel exists from Tailwind's sm: breakpoint
 const WORLD_UP = new THREE.Vector3(0, 0, 1);
+const DEG = Math.PI / 180;
+// Arrival: sunward of the body, turned aside and a little above, so the terminator shows
+const ARRIVAL_PHASE = 35 * DEG;
+const ARRIVAL_ELEVATION = 15 * DEG;
+// Ringed planets: seen from this high above the rings, on their sunlit face
+const RING_VIEW_ELEVATION = 25 * DEG;
+// Flights that zoom out across the Solar System rise this much above the planets' plane mid-way
+const MAX_LIFT = 22 * DEG;
 
 const reducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -39,29 +48,77 @@ type Focus = {
   radius: () => number;
 };
 
+/**
+ * A flight along a zoom path (helper/flight.ts): the view center slides from
+ * the start target to the end target while the camera's distance follows the
+ * path and its direction turns around the center. Both targets are
+ * re-evaluated every frame, bodies keep moving.
+ */
 type Flight = {
-  startPosition: THREE.Vector3;
-  startTarget: THREE.Vector3;
-  /** Where to look at the end — re-evaluated every frame, bodies keep moving */
-  endTarget: () => THREE.Vector3 | null;
-  /** Camera position relative to the end target */
-  endOffset: THREE.Vector3;
+  from: () => THREE.Vector3;
+  to: () => THREE.Vector3 | null;
+  lastTo: THREE.Vector3;
+  path: ZoomPath;
+  endDistance: number;
+  theta0: number; // direction from the center, around the ecliptic pole
+  turn: number;
+  phi0: number; // and from the pole
+  phi1: number;
+  lift: number;
   duration: number;
-  progress: number;
+  rampIn: number;
+  rampOut: number;
+  elapsed: number;
   /** Tracked after arrival */
   focus: Focus | null;
 };
 
-/** Distance to land at: close enough to fill the view, never inside the body */
+/** Distance to land at: the body fills about half the view (Saturn: its rings) */
 function landingDistance(body: CelestialBody, radius: number, blend: number): number {
   if (body.type === "spacecraft") return THREE.MathUtils.lerp(30, 3000, blend);
-  return Math.max(radius * 4, radius < 0.1 ? radius * 8 : 5);
+  return radius * (hasRenderedRings(body) ? 6 : 4);
 }
 
-/** Camera offset from a body: between it and the Sun, so the lit side faces us */
-function sunlitOffset(bodyPos: THREE.Vector3, dist: number): THREE.Vector3 {
-  if (bodyPos.length() < 0.01) return new THREE.Vector3(dist, 0, 0); // the Sun itself
-  return bodyPos.clone().negate().normalize().multiplyScalar(dist);
+function direction(phi: number, theta: number, out = new THREE.Vector3()): THREE.Vector3 {
+  const s = Math.sin(phi);
+  return out.set(s * Math.cos(theta), s * Math.sin(theta), Math.cos(phi));
+}
+
+/** Angles of a direction: around the ecliptic pole (theta) and from it (phi) */
+function angles(v: THREE.Vector3): { theta: number; phi: number } {
+  const len = v.length();
+  return {
+    theta: Math.atan2(v.y, v.x),
+    phi: len > 0 ? Math.acos(THREE.MathUtils.clamp(v.z / len, -1, 1)) : Math.PI / 2,
+  };
+}
+
+const wrapAngle = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+
+/**
+ * Where to look at a body from: toward the Sun, turned 35° aside (whichever side
+ * is nearer the camera) and a bit above, so it shows a lit, three-dimensional
+ * gibbous face rather than a flat full disc. Ringed planets are seen from
+ * above the rings' sunlit face; the Sun is approached head-on.
+ */
+function arrivalDirection(body: CelestialBody, bodyPos: THREE.Vector3, fromDir: THREE.Vector3): THREE.Vector3 {
+  if (bodyPos.length() < 1e-6) {
+    const { theta, phi } = angles(fromDir);
+    return direction(THREE.MathUtils.clamp(phi, 50 * DEG, 80 * DEG), theta);
+  }
+  const sunward = bodyPos.clone().negate().normalize();
+  const sun = angles(sunward);
+  const phi = THREE.MathUtils.clamp(sun.phi - ARRIVAL_ELEVATION, 10 * DEG, 170 * DEG);
+  const a = direction(phi, sun.theta + ARRIVAL_PHASE);
+  const b = direction(phi, sun.theta - ARRIVAL_PHASE);
+  const dir = a.dot(fromDir) >= b.dot(fromDir) ? a : b;
+
+  const { poleRA, poleDec } = body.info;
+  if (!hasRenderedRings(body) || poleRA == null || poleDec == null) return dir;
+  const pole = poleToEcliptic(poleRA, poleDec);
+  const litSide = Math.sign(sunward.dot(pole)) || 1;
+  const inPlane = dir.addScaledVector(pole, -dir.dot(pole)).normalize();
+  return inPlane.multiplyScalar(Math.cos(RING_VIEW_ELEVATION)).addScaledVector(pole, litSide * Math.sin(RING_VIEW_ELEVATION));
 }
 
 /** Behind `subject`, looking past it toward `toward`, a bit above and to the side */
@@ -72,6 +129,7 @@ function chaseOffset(subject: THREE.Vector3, toward: THREE.Vector3, dist: number
 }
 
 const _up = new THREE.Vector3();
+const _dir = new THREE.Vector3();
 
 export default function CameraRig({ controlsRef }: CameraRigProps) {
   const cameraNav = useContext(CameraNavigationContext);
@@ -93,15 +151,28 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
   const cameraLockedRef = useRef(artemis.cameraLocked);
   const viewOffset = useRef(0);
 
-  // Right-click disengages Artemis tracking
   useEffect(() => {
     const canvas = gl.domElement;
+    // Right-click disengages Artemis tracking
     const onDown = (e: MouseEvent) => {
       if (e.button === 2 && cameraLockedRef.current) setCameraLocked(null);
     };
+    // Grabbing the view mid-flight stops the flight. Capture phase: the
+    // controls get the same event and start the drag or zoom right away
+    const takeOver = () => {
+      if (!flight.current) return;
+      flight.current = null;
+      if (controlsRef.current) controlsRef.current.enabled = true;
+    };
     canvas.addEventListener("mousedown", onDown);
-    return () => canvas.removeEventListener("mousedown", onDown);
-  }, [gl, setCameraLocked]);
+    canvas.addEventListener("pointerdown", takeOver, { capture: true });
+    canvas.addEventListener("wheel", takeOver, { capture: true, passive: true });
+    return () => {
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("pointerdown", takeOver, { capture: true });
+      canvas.removeEventListener("wheel", takeOver, { capture: true });
+    };
+  }, [gl, setCameraLocked, controlsRef]);
 
   useFrame((_, delta) => {
     cameraLockedRef.current = artemis.cameraLocked;
@@ -128,14 +199,49 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
       radius: () => 0,
     };
 
-    function startFlight(endTarget: Flight["endTarget"], endOffset: THREE.Vector3, duration: number, nextFocus: Focus | null) {
+    /** Width/height of the part of the screen the panel leaves free */
+    const freeAspect = () => {
+      const panel = panelOpen && size.width >= PANEL_MIN_SCREEN && !artemis.active;
+      return (panel ? size.width - PANEL_WIDTH : size.width) / size.height;
+    };
+
+    function startFlight(to: Flight["to"], endOffset: THREE.Vector3, nextFocus: Focus | null, fixedDuration?: number) {
+      const startTarget = controls!.target.clone();
+      // Leaving a body we were following: keep following it while we pull away
+      const leaving = focus.current;
+      const leavingPos = leaving?.position();
+      let from: Flight["from"] = () => startTarget;
+      if (leaving && leavingPos) {
+        const shift = startTarget.clone().sub(leavingPos);
+        from = () => leaving.position()?.add(shift) ?? startTarget;
+      }
+
+      const endTarget = to() ?? startTarget;
+      const startOffset = camera.position.clone().sub(startTarget);
+      const w0 = Math.max(startOffset.length(), 1e-9);
+      const w1 = Math.max(endOffset.length(), 1e-9);
+      const path = zoomPath(w0, w1, endTarget.distanceTo(startTarget));
+      const timing = fixedDuration
+        ? { duration: reducedMotion() ? Math.min(fixedDuration, 0.6) : fixedDuration, rampIn: 0.5, rampOut: 0.5 }
+        : flightTiming(path.length, reducedMotion());
+      const a = angles(startOffset);
+      const b = angles(endOffset);
+      // The more the path zooms out beyond both ends, the higher it rises
+      const zoomOut = Math.log(peakDistance(path, w0, w1) / Math.max(w0, w1));
+
       flight.current = {
-        startPosition: camera.position.clone(),
-        startTarget: controls!.target.clone(),
-        endTarget,
-        endOffset,
-        duration: reducedMotion() ? Math.min(duration, 0.6) : duration,
-        progress: 0,
+        from,
+        to,
+        lastTo: endTarget.clone(),
+        path,
+        endDistance: w1,
+        theta0: a.theta,
+        turn: wrapAngle(b.theta - a.theta),
+        phi0: a.phi,
+        phi1: b.phi,
+        lift: MAX_LIFT * Math.min(zoomOut / 2, 1),
+        ...timing,
+        elapsed: 0,
         focus: nextFocus,
       };
       focus.current = null;
@@ -146,11 +252,10 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
     function flyToRegion(body: CelestialBody) {
       const [outer] = blendPosition(regionRadiiKm(body).outer, 0, 0, blend);
       const dist = outer * 2.4;
-      const elevation = (55 * Math.PI) / 180;
+      const elevation = 55 * DEG;
       const offset = new THREE.Vector3(0, -dist * Math.cos(elevation), dist * Math.sin(elevation));
       const center = new THREE.Vector3();
-      const travel = camera.position.distanceTo(offset);
-      startFlight(() => center, offset, Math.min(1.0 + (travel / 500000) * 2.0, 3), null);
+      startFlight(() => center, offset, null);
     }
 
     function flyToBody(body: CelestialBody) {
@@ -158,34 +263,31 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
       const f = bodyFocus(body);
       const pos = f.position();
       if (!pos) return;
-      const dist = landingDistance(body, f.radius(), blend);
-      const offset = sunlitOffset(pos, dist);
-      const t = Math.min(camera.position.distanceTo(pos.clone().add(offset)) / 500000, 1);
-      startFlight(f.position, offset, 0.8 + t * 2.2, f);
+      const fromDir = camera.position.clone().sub(pos).normalize();
+      const offset = arrivalDirection(body, pos, fromDir).multiplyScalar(landingDistance(body, f.radius(), blend));
+      startFlight(f.position, offset, f);
     }
 
     function snapTo(view: Exclude<ViewDirection, null>) {
+      const aspect = freeAspect();
+      if (view === "milkyway") {
+        startFlight(() => GALACTIC_CENTER, galaxyViewOffset(aspect, persp.fov), null);
+        return;
+      }
       // For "home", use TARGET blend (where the scale is going), not current
       const targetBlend = view === "home" ? (scaleCtx!.realisticMode ? 1 : 0) : blend;
-      const aspect = size.width / size.height;
       const viewDist = systemViewDistance(targetBlend, aspect);
-
-      let target = new THREE.Vector3(0, 0, 0);
       let offset: THREE.Vector3;
       if (view === "top") {
         // Straight down, nudged off the pole so "up" stays defined
         offset = new THREE.Vector3(0, -viewDist * 0.001, viewDist);
       } else if (view === "front") {
         offset = new THREE.Vector3(0, viewDist, 0);
-      } else if (view === "home") {
-        offset = new THREE.Vector3(...homeOffset(targetBlend, aspect));
       } else {
-        target = GALACTIC_CENTER.clone();
-        offset = galaxyViewOffset(aspect, persp.fov);
+        offset = new THREE.Vector3(...homeOffset(targetBlend, aspect));
       }
-      const dist = camera.position.distanceTo(target.clone().add(offset));
-      const fixed = target.clone();
-      startFlight(() => fixed, offset, Math.min(1.0 + (dist / 100000000000) * 2.0, 3.5), null);
+      const sun = new THREE.Vector3();
+      startFlight(() => sun, offset, null);
     }
 
     function artemisFly(target: Exclude<ArtemisCameraTarget, null>, duration: number) {
@@ -197,23 +299,23 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
       const moonPos = bodyFocus(moon).position() ?? orion.clone().add(new THREE.Vector3(10, 0, 0));
       if (target === "orion") {
         const closeDist = artemis.orionEnhanced ? 0.15 : 0.000008;
-        startFlight(orionFocus.position, chaseOffset(orion, moonPos, closeDist, 0.3, 0.15), duration, orionFocus);
+        startFlight(orionFocus.position, chaseOffset(orion, moonPos, closeDist, 0.3, 0.15), orionFocus, duration);
       } else {
         const body = target === "earth" ? earth : moon;
         const f = bodyFocus(body);
         const pos = f.position();
         if (!pos) return;
         const r = f.radius();
-        startFlight(f.position, chaseOffset(pos, orion, r * 4, 1.5 / 4, 1 / 4), duration, f);
+        startFlight(f.position, chaseOffset(pos, orion, r * 4, 1.5 / 4, 1 / 4), f, duration);
       }
     }
 
-    // ---- Requests ----
-    if (cameraNav.flyTo && !flight.current) {
+    // ---- Requests (a new one takes over a flight in progress) ----
+    if (cameraNav.flyTo) {
       flyToBody(cameraNav.flyTo);
       cameraNav.setFlyTo(null);
     }
-    if (cameraNav.viewSnap && !flight.current) {
+    if (cameraNav.viewSnap) {
       snapTo(cameraNav.viewSnap);
       cameraNav.setViewSnap(null);
     }
@@ -251,20 +353,30 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
     // ---- Flight ----
     const f = flight.current;
     if (f) {
-      f.progress += delta / f.duration;
-      const raw = Math.min(f.progress, 1);
-      const eased = 0.5 - 0.5 * Math.cos(raw * Math.PI);
-      const end = f.endTarget() ?? f.startTarget;
-      controls.target.lerpVectors(f.startTarget, end, eased);
-      camera.position.lerpVectors(f.startPosition, end.clone().add(f.endOffset), eased);
-      camera.up.copy(cameraUp(camera.position.length(), _up));
-      camera.lookAt(controls.target);
+      f.elapsed += delta;
+      const t = Math.min(f.elapsed / f.duration, 1);
+      const p = flightEase(t, f.rampIn, f.rampOut);
+      const { u, w } = t >= 1 ? { u: 1, w: f.endDistance } : f.path.at(p * f.path.length);
+      const to = f.to();
+      if (to) f.lastTo.copy(to);
+      const center = f.from().clone().lerp(f.lastTo, u);
 
-      if (raw >= 1) {
+      // Turn around the center; mid-way, rise toward the nearer pole
+      const phiLinear = f.phi0 + (f.phi1 - f.phi0) * p;
+      const rise = f.lift * Math.sin(Math.PI * p) * (phiLinear <= Math.PI / 2 ? -1 : 1);
+      const phi = THREE.MathUtils.clamp(phiLinear + rise, 0.001, Math.PI - 0.001);
+      direction(phi, f.theta0 + f.turn * p, _dir);
+
+      controls.target.copy(center);
+      camera.position.copy(center).addScaledVector(_dir, w);
+      camera.up.copy(cameraUp(camera.position.length(), _up));
+      camera.lookAt(center);
+
+      if (t >= 1) {
         flight.current = null;
         controls.enabled = true;
         focus.current = f.focus;
-        lastFocusPos.current = f.focus ? end.clone() : null;
+        lastFocusPos.current = f.focus ? center.clone() : null;
         lastFocusRadius.current = f.focus ? f.focus.radius() : 0;
       }
     } else {
